@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据校验 - 管理后台</title>
+  <link rel="stylesheet" href="styles/admin.css">
+  <style>
+    .verify-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .verify-panel {
+      background: white; border: 1px solid var(--border);
+      border-radius: var(--radius-md); overflow: hidden;
+    }
+    .verify-panel-header {
+      padding: 12px 16px; background: var(--bg-page); font-size: 14px;
+      font-weight: 600; border-bottom: 1px solid var(--border);
+    }
+    .verify-panel-body { padding: 16px; max-height: 500px; overflow-y: auto; }
+    .source-text { font-size: 13px; line-height: 1.8; color: var(--text-secondary); }
+    .source-text .highlight { background: #fff3cd; padding: 1px 4px; border-radius: 2px; }
+    .verify-field {
+      display: flex; align-items: center; gap: 8px; padding: 8px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .verify-field:last-child { border-bottom: none; }
+    .verify-field-label { width: 80px; font-size: 12px; color: var(--text-tertiary); flex-shrink: 0; }
+    .verify-field-input {
+      flex: 1; padding: 6px 10px; border: 1px solid var(--border);
+      border-radius: 4px; font-size: 13px;
+    }
+    .verify-field-input:focus { outline: none; border-color: var(--primary); }
+    .verify-field-status { width: 24px; text-align: center; font-size: 14px; }
+    .product-selector {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .product-chip {
+      padding: 6px 12px; border: 1px solid var(--border); border-radius: 16px;
+      font-size: 12px; cursor: pointer; transition: all 0.2s;
+    }
+    .product-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+    .product-chip.verified { border-color: var(--success); color: var(--success); }
+    .product-chip.unverified { border-color: var(--warning); color: var(--warning); }
+  </style>
+</head>
+<body>
+  <div class="admin-layout">
+    <div class="sidebar">
+      <div class="sidebar-logo"><span class="sidebar-logo-icon">⚙️</span><span>管理后台</span></div>
+      <div class="sidebar-menu">
+        <a href="dashboard.html" class="menu-item"><span class="menu-icon">📊</span>仪表盘</a>
+        <a href="users.html" class="menu-item"><span class="menu-icon">👥</span>用户管理</a>
+        <a href="approval.html" class="menu-item"><span class="menu-icon">✅</span>报价审批</a>
+        <a href="prices.html" class="menu-item"><span class="menu-icon">💰</span>价格管理</a>
+        <a href="documents.html" class="menu-item"><span class="menu-icon">📚</span>文档管理</a>
+        <a href="verify.html" class="menu-item active"><span class="menu-icon">🔍</span>数据校验</a>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">人工数据校验</div>
+        <div class="topbar-user">
+          <span class="topbar-avatar">👨‍💼</span>
+          <span id="adminName">管理员</span>
+          <button class="topbar-logout" onclick="UserStorage.logout();location.href='index.html'">退出</button>
+        </div>
+      </div>
+
+      <div class="page-container">
+        <!-- 校验进度 -->
+        <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+          <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-value" style="color:var(--success)">6</div>
+            <div class="stat-label">已校验</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-value" style="color:var(--warning)">2</div>
+            <div class="stat-label">待校验</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-value">8</div>
+            <div class="stat-label">总型号数</div>
+          </div>
+        </div>
+
+        <!-- 产品选择 -->
+        <div class="card">
+          <div class="card-title">选择产品进行校验</div>
+          <div class="product-selector" id="productSelector"></div>
+        </div>
+
+        <!-- 校验界面 -->
+        <div class="verify-layout" id="verifyArea">
+          <!-- 左侧：原文 -->
+          <div class="verify-panel">
+            <div class="verify-panel-header">📄 原文来源 — <span id="sourceDoc">2026版深沟球轴承产品目录.pdf 第15页</span></div>
+            <div class="verify-panel-body">
+              <div class="source-text" id="sourceText">
+                <p><strong>6205-2RS 深沟球轴承</strong></p>
+                <p>型号：<span class="highlight">6205-2RS</span></p>
+                <p>内径 d：<span class="highlight">25mm</span></p>
+                <p>外径 D：<span class="highlight">52mm</span></p>
+                <p>宽度 B：<span class="highlight">15mm</span></p>
+                <p>重量：<span class="highlight">0.13kg</span></p>
+                <p>材质：<span class="highlight">GCr15轴承钢</span></p>
+                <p>密封类型：<span class="highlight">双面橡胶密封(2RS)</span></p>
+                <p>极限转速：<span class="highlight">12000rpm</span></p>
+                <p>基本额定动载荷 Cr：<span class="highlight">14.8kN</span></p>
+                <p>基本额定静载荷 C0r：<span class="highlight">7.8kN</span></p>
+                <p>精度等级：<span class="highlight">P0</span></p>
+                <p>游隙：<span class="highlight">C0（标准）</span></p>
+                <p>工作温度范围：<span class="highlight">-30℃ ~ +120℃</span></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右侧：结构化数据 -->
+          <div class="verify-panel">
+            <div class="verify-panel-header">📝 提取数据 — 可编辑修正</div>
+            <div class="verify-panel-body">
+              <div id="verifyFields"></div>
+              <div style="margin-top:16px;display:flex;gap:8px">
+                <button class="btn btn-success" onclick="markVerified()">✅ 标记为已校验</button>
+                <button class="btn btn-outline" onclick="showToast('已跳过')">⏭️ 跳过</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../scripts/utils.js"></script>
+  <script src="../scripts/mock-data.js"></script>
+  <script src="../scripts/storage.js"></script>
+  <script>
+    if (!UserStorage.isLoggedIn() || !UserStorage.get().isAdmin) { window.location.href = 'index.html'; }
+    initAllData();
+    document.getElementById('adminName').textContent = UserStorage.get().name;
+
+    const products = ProductStorage.getAll();
+    let currentProduct = products[0];
+
+    // 产品选择器
+    document.getElementById('productSelector').innerHTML = products.map(p => `
+      <span class="product-chip ${p.is_verified ? 'verified' : 'unverified'} ${p.id === currentProduct.id ? 'active' : ''}"
+            onclick="selectProduct('${p.id}')">
+        ${p.is_verified ? '✓' : '⚠'} ${p.sku}
+      </span>
+    `).join('');
+
+    function renderVerifyFields(product) {
+      if (!product || !product.spec_params) return;
+      const fields = Object.entries(product.spec_params);
+      document.getElementById('verifyFields').innerHTML = fields.map(([key, val]) => `
+        <div class="verify-field">
+          <span class="verify-field-label">${key}</span>
+          <input class="verify-field-input" value="${val}">
+          <span class="verify-field-status">${product.is_verified ? '✅' : '⚠️'}</span>
+        </div>
+      `).join('');
+      document.getElementById('sourceDoc').textContent =
+        `${DocStorage.getById(product.source_doc_id)?.name || '未知文档'} 第${product.source_page || '?'}页`;
+    }
+
+    window.selectProduct = function(id) {
+      currentProduct = ProductStorage.getById(id);
+      document.querySelectorAll('.product-chip').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+      renderVerifyFields(currentProduct);
+    };
+
+    window.markVerified = function() {
+      const allProducts = ProductStorage.getAll();
+      const idx = allProducts.findIndex(p => p.id === currentProduct.id);
+      if (idx !== -1) {
+        allProducts[idx].is_verified = true;
+        ProductStorage.save(allProducts);
+        showToast(currentProduct.sku + ' 已标记为已校验');
+        setTimeout(() => location.reload(), 500);
+      }
+    };
+
+    function showToast(msg) {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = '✅ ' + msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2500);
+    }
+
+    renderVerifyFields(currentProduct);
+  </script>
+</body>
+</html>

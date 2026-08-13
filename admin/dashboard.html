@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理后台 - 仪表盘</title>
+  <link rel="stylesheet" href="styles/admin.css">
+</head>
+<body>
+  <div class="admin-layout">
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-icon">⚙️</span>
+        <span>管理后台</span>
+      </div>
+      <div class="sidebar-menu">
+        <a href="dashboard.html" class="menu-item active"><span class="menu-icon">📊</span>仪表盘</a>
+        <a href="users.html" class="menu-item"><span class="menu-icon">👥</span>用户管理</a>
+        <a href="approval.html" class="menu-item"><span class="menu-icon">✅</span>报价审批</a>
+        <a href="prices.html" class="menu-item"><span class="menu-icon">💰</span>价格管理</a>
+        <a href="documents.html" class="menu-item"><span class="menu-icon">📚</span>文档管理</a>
+        <a href="verify.html" class="menu-item"><span class="menu-icon">🔍</span>数据校验</a>
+      </div>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">仪表盘</div>
+        <div class="topbar-user">
+          <span class="topbar-avatar" id="adminAvatar">👨‍💼</span>
+          <span id="adminName">管理员</span>
+          <button class="topbar-logout" onclick="handleLogout()">退出</button>
+        </div>
+      </div>
+
+      <div class="page-container">
+        <!-- 统计概览 -->
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value" id="statUsers">4</div>
+            <div class="stat-label">系统用户</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-value" id="statProducts">8</div>
+            <div class="stat-label">产品型号</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📋</div>
+            <div class="stat-value" id="statQuotes">3</div>
+            <div class="stat-label">待审批报价</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📄</div>
+            <div class="stat-value" id="statDocs">7</div>
+            <div class="stat-label">知识文档</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <!-- 待审批报价 -->
+          <div class="card">
+            <div class="card-title">⏳ 待审批报价单</div>
+            <div id="pendingApprovals"></div>
+          </div>
+
+          <!-- 最近操作日志 -->
+          <div class="card">
+            <div class="card-title">📝 最近操作日志</div>
+            <div id="recentLogs"></div>
+          </div>
+        </div>
+
+        <!-- 知识库健康度 -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">💊 知识库健康度</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;text-align:center">
+            <div>
+              <div style="font-size:24px;font-weight:700;color:var(--success)">90%</div>
+              <div style="font-size:12px;color:var(--text-tertiary)">文档解析率</div>
+            </div>
+            <div>
+              <div style="font-size:24px;font-weight:700;color:var(--primary)">85%</div>
+              <div style="font-size:12px;color:var(--text-tertiary)">数据校验率</div>
+            </div>
+            <div>
+              <div style="font-size:24px;font-weight:700;color:var(--warning)">95%</div>
+              <div style="font-size:12px;color:var(--text-tertiary)">查询成功率</div>
+            </div>
+            <div>
+              <div style="font-size:24px;font-weight:700;color:var(--secondary)">1.2s</div>
+              <div style="font-size:12px;color:var(--text-tertiary)">平均响应</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../scripts/utils.js"></script>
+  <script src="../scripts/mock-data.js"></script>
+  <script src="../scripts/storage.js"></script>
+  <script>
+    if (!UserStorage.isLoggedIn() || !UserStorage.get().isAdmin) { window.location.href = 'index.html'; }
+    initAllData();
+
+    const user = UserStorage.get();
+    document.getElementById('adminAvatar').textContent = user.avatar || '👨‍💼';
+    document.getElementById('adminName').textContent = user.name;
+
+    // 统计数据
+    document.getElementById('statUsers').textContent = MockData.users.length;
+    document.getElementById('statProducts').textContent = ProductStorage.getAll().length;
+    document.getElementById('statDocs').textContent = DocStorage.getAll().length;
+
+    // 待审批报价
+    const pendingQuotes = QuotationStorage.getAll().filter(q => q.status === 'sent' || q.discount_rate < 0.9);
+    document.getElementById('statQuotes').textContent = pendingQuotes.length;
+    document.getElementById('pendingApprovals').innerHTML = pendingQuotes.length === 0
+      ? '<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:13px">暂无待审批</div>'
+      : pendingQuotes.map(q => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--divider)">
+          <div>
+            <div style="font-size:13px;font-weight:500">${q.quotation_no}</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">${q.customer_name} · ${Utils.formatMoney(q.total_amount)}</div>
+          </div>
+          <a href="approval.html" class="btn btn-sm btn-primary">审批</a>
+        </div>
+      `).join('');
+
+    // 操作日志
+    const logs = [
+      { action: '李明 创建了报价单 QT260810003', time: '10分钟前', icon: '📋' },
+      { action: '王芳 查询了产品 6205-2RS', time: '25分钟前', icon: '🔍' },
+      { action: '张伟 上传了文档 轴承安装指南.pdf', time: '1小时前', icon: '📄' },
+      { action: '系统 完成文档解析（12个型号）', time: '2小时前', icon: '⚙️' },
+      { action: '李明 发送报价单给 苏州精密机械', time: '3小时前', icon: '📤' }
+    ];
+    document.getElementById('recentLogs').innerHTML = logs.map(l => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--divider);font-size:13px">
+        <span>${l.icon}</span>
+        <span style="flex:1">${l.action}</span>
+        <span style="font-size:11px;color:var(--text-tertiary)">${l.time}</span>
+      </div>
+    `).join('');
+
+    function handleLogout() {
+      UserStorage.logout();
+      window.location.href = 'index.html';
+    }
+  </script>
+</body>
+</html>

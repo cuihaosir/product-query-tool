@@ -236,6 +236,9 @@
               <span class="quote-amount">${Utils.formatMoney(q.total_amount)}</span>
               <span class="quote-date">${Utils.formatDate(q.created_at, 'MM-DD HH:mm')}</span>
             </div>
+            <div style="margin-top:8px;text-align:right">
+              <button style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:white;color:var(--primary);cursor:pointer" onclick="copyQuote('${q.id}', event)">📋 复制并新建</button>
+            </div>
           </div>
         `).join('');
     }
@@ -243,6 +246,22 @@
     // 查看报价单
     window.viewQuote = function(id) {
       location.href = 'quote-detail.html?id=' + id;
+    };
+
+    // 复制并新建报价单
+    window.copyQuote = function(id, e) {
+      e.stopPropagation();
+      const quote = QuotationStorage.getById(id);
+      if (!quote) return;
+      // 将报价单产品放入购物车
+      localStorage.setItem('pqt_quote_cart', JSON.stringify(quote.items));
+      openNewQuote();
+      // 预填客户信息
+      setTimeout(() => {
+        document.getElementById('quoteCustomer').value = quote.customer_id;
+        document.getElementById('quoteContact').value = quote.contact_name || '';
+      }, 100);
+      Utils.toast('已复制报价单内容，请修改后提交');
     };
 
     // 打开新建报价单

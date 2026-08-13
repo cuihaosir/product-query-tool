@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>报价审批 - 管理后台</title>
+  <link rel="stylesheet" href="styles/admin.css">
+</head>
+<body>
+  <div class="admin-layout">
+    <div class="sidebar">
+      <div class="sidebar-logo"><span class="sidebar-logo-icon">⚙️</span><span>管理后台</span></div>
+      <div class="sidebar-menu">
+        <a href="dashboard.html" class="menu-item"><span class="menu-icon">📊</span>仪表盘</a>
+        <a href="users.html" class="menu-item"><span class="menu-icon">👥</span>用户管理</a>
+        <a href="approval.html" class="menu-item active"><span class="menu-icon">✅</span>报价审批</a>
+        <a href="prices.html" class="menu-item"><span class="menu-icon">💰</span>价格管理</a>
+        <a href="documents.html" class="menu-item"><span class="menu-icon">📚</span>文档管理</a>
+        <a href="verify.html" class="menu-item"><span class="menu-icon">🔍</span>数据校验</a>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">报价审批</div>
+        <div class="topbar-user">
+          <span class="topbar-avatar">👨‍💼</span>
+          <span id="adminName">管理员</span>
+          <button class="topbar-logout" onclick="UserStorage.logout();location.href='index.html'">退出</button>
+        </div>
+      </div>
+
+      <div class="page-container">
+        <!-- 审批规则说明 -->
+        <div class="card">
+          <div class="card-title">📋 审批规则配置</div>
+          <table class="data-table">
+            <thead>
+              <tr><th>触发条件</th><th>审批人</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>折扣低于9折</td><td>销售经理</td><td>业务员折扣权限最多9折</td></tr>
+              <tr><td>折扣低于8折</td><td>总经理</td><td>销售经理折扣权限最多8折</td></tr>
+              <tr><td>报价金额 ≥ 5万元</td><td>总经理</td><td>大额报价需总经理审批</td></tr>
+              <tr><td>毛利率 < 20%</td><td>总经理</td><td>低于保底毛利率需审批</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 待审批列表 -->
+        <div class="card">
+          <div class="card-title">⏳ 待审批报价单</div>
+          <div id="pendingList"></div>
+        </div>
+
+        <!-- 审批历史 -->
+        <div class="card">
+          <div class="card-title">📜 审批历史</div>
+          <table class="data-table">
+            <thead>
+              <tr><th>报价单号</th><th>客户</th><th>金额</th><th>触发原因</th><th>审批人</th><th>结果</th><th>时间</th></tr>
+            </thead>
+            <tbody id="historyTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 审批详情弹窗 -->
+  <div class="modal-overlay" id="approvalModal">
+    <div class="modal" style="width:600px">
+      <div class="modal-header">
+        <span class="modal-title">审批报价单</span>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div id="approvalDetail"></div>
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">审批意见</label>
+        <textarea class="form-input" id="approvalComment" rows="3" placeholder="请输入审批意见（可选）"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" onclick="handleReject()">❌ 驳回</button>
+        <button class="btn btn-success" onclick="handleApprove()">✅ 通过</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../scripts/utils.js"></script>
+  <script src="../scripts/mock-data.js"></script>
+  <script src="../scripts/storage.js"></script>
+  <script>
+    if (!UserStorage.isLoggedIn() || !UserStorage.get().isAdmin) { window.location.href = 'index.html'; }
+    initAllData();
+    document.getElementById('adminName').textContent = UserStorage.get().name;
+
+    let currentQuoteId = null;
+
+    // 模拟待审批数据（添加一些超权限报价）
+    const pendingApprovals = [
+      {
+        id: 'ap001', quotation_no: 'QT260812004', customer_name: '宁波海天液压',
+        salesperson: '李明', amount: 85000, discount: 0.75,
+        reason: '折扣低于8折（75折）', items: '6205-2RS x2000, 6206-2RS x1500',
+        created_at: '2026-08-12T14:30:00Z'
+      },
+      {
+        id: 'ap002', quotation_no: 'QT260812005', customer_name: '上海东方传动',
+        salesperson: '王芳', amount: 52000, discount: 0.88,
+        reason: '报价金额≥5万元', items: 'YE2-90L-4 x60, A-68 x200',
+        created_at: '2026-08-12T16:00:00Z'
+      }
+    ];
+
+    // 渲染待审批
+    document.getElementById('pendingList').innerHTML = pendingApprovals.length === 0
+      ? '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">暂无待审批报价</div></div>'
+      : pendingApprovals.map(a => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--divider)">
+          <div>
+            <div style="font-size:14px;font-weight:600">${a.quotation_no}</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">
+              ${a.customer_name} · ${a.salesperson} · ${Utils.formatMoney(a.amount)}
+            </div>
+            <div style="margin-top:4px">
+              <span class="approval-badge approval-pending">⚠ ${a.reason}</span>
+            </div>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-primary" onclick="openApproval('${a.id}')">审批</button>
+          </div>
+        </div>
+      `).join('');
+
+    // 审批历史
+    const history = [
+      { no: 'QT260801001', customer: '苏州精密机械', amount: 5243.2, reason: '-', approver: '张伟', result: 'approved', time: '08-01 10:00' },
+      { no: 'QT260805002', customer: '无锡恒达电机厂', amount: 3992, reason: '-', approver: '张伟', result: 'approved', time: '08-05 15:30' }
+    ];
+    document.getElementById('historyTable').innerHTML = history.map(h => `
+      <tr>
+        <td>${h.no}</td>
+        <td>${h.customer}</td>
+        <td>${Utils.formatMoney(h.amount)}</td>
+        <td>${h.reason}</td>
+        <td>${h.approver}</td>
+        <td><span class="approval-badge approval-${h.result}">${h.result === 'approved' ? '✅ 通过' : '❌ 驳回'}</span></td>
+        <td>${h.time}</td>
+      </tr>
+    `).join('');
+
+    window.openApproval = function(id) {
+      currentQuoteId = id;
+      const a = pendingApprovals.find(x => x.id === id);
+      if (!a) return;
+      document.getElementById('approvalDetail').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+          <div><strong>报价单号：</strong>${a.quotation_no}</div>
+          <div><strong>客户：</strong>${a.customer_name}</div>
+          <div><strong>业务员：</strong>${a.salesperson}</div>
+          <div><strong>报价金额：</strong><span style="color:var(--primary);font-weight:600">${Utils.formatMoney(a.amount)}</span></div>
+          <div><strong>折扣：</strong><span style="color:${a.discount < 0.8 ? 'var(--error)' : 'var(--warning)'}">${Math.round(a.discount*100)/10}折</span></div>
+          <div><strong>触发原因：</strong><span style="color:var(--warning)">${a.reason}</span></div>
+        </div>
+        <div style="margin-top:12px;padding:10px;background:var(--bg-page);border-radius:6px;font-size:13px">
+          <strong>产品明细：</strong>${a.items}
+        </div>
+      `;
+      document.getElementById('approvalModal').classList.add('show');
+    };
+
+    window.closeModal = function() {
+      document.getElementById('approvalModal').classList.remove('show');
+    };
+
+    window.handleApprove = function() {
+      closeModal();
+      showToast('报价单已审批通过');
+      setTimeout(() => location.reload(), 1000);
+    };
+
+    window.handleReject = function() {
+      closeModal();
+      showToast('报价单已驳回');
+      setTimeout(() => location.reload(), 1000);
+    };
+
+    function showToast(msg) {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = '✅ ' + msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2500);
+    }
+  </script>
+</body>
+</html>

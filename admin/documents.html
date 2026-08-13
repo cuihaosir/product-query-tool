@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文档管理 - 管理后台</title>
+  <link rel="stylesheet" href="styles/admin.css">
+</head>
+<body>
+  <div class="admin-layout">
+    <div class="sidebar">
+      <div class="sidebar-logo"><span class="sidebar-logo-icon">⚙️</span><span>管理后台</span></div>
+      <div class="sidebar-menu">
+        <a href="dashboard.html" class="menu-item"><span class="menu-icon">📊</span>仪表盘</a>
+        <a href="users.html" class="menu-item"><span class="menu-icon">👥</span>用户管理</a>
+        <a href="approval.html" class="menu-item"><span class="menu-icon">✅</span>报价审批</a>
+        <a href="prices.html" class="menu-item"><span class="menu-icon">💰</span>价格管理</a>
+        <a href="documents.html" class="menu-item active"><span class="menu-icon">📚</span>文档管理</a>
+        <a href="verify.html" class="menu-item"><span class="menu-icon">🔍</span>数据校验</a>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">文档版本管理</div>
+        <div class="topbar-user">
+          <span class="topbar-avatar">👨‍💼</span>
+          <span id="adminName">管理员</span>
+          <button class="topbar-logout" onclick="UserStorage.logout();location.href='index.html'">退出</button>
+        </div>
+      </div>
+
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-title">知识库文档</div>
+          <button class="btn btn-primary" onclick="showToast('请选择文件上传')">+ 上传文档</button>
+        </div>
+
+        <!-- 文档列表 -->
+        <div class="card" style="padding:0;overflow:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>文档名称</th>
+                <th>类型</th>
+                <th>版本</th>
+                <th>页数/大小</th>
+                <th>收录型号</th>
+                <th>状态</th>
+                <th>上传时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="docTable"></tbody>
+          </table>
+        </div>
+
+        <!-- 版本对比 -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">🔄 版本对比示例 — 深沟球轴承产品目录</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <select class="form-select" style="width:200px">
+              <option>V3.0 (2026-07-01)</option>
+              <option>V2.0 (2026-01-15)</option>
+            </select>
+            <span style="line-height:36px">vs</span>
+            <select class="form-select" style="width:200px">
+              <option>V2.0 (2026-01-15)</option>
+              <option>V1.0 (2025-06-01)</option>
+            </select>
+            <button class="btn btn-primary btn-sm">对比</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr><th>型号</th><th>变更字段</th><th>旧值</th><th>新值</th><th>变更类型</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>6205-2RS</td>
+                <td>单价</td>
+                <td><span class="diff-removed">¥5.50</span></td>
+                <td><span class="diff-added">¥5.80</span></td>
+                <td><span class="diff-changed">修改</span></td>
+              </tr>
+              <tr>
+                <td>6205-2RS</td>
+                <td>库存</td>
+                <td><span class="diff-removed">2500</span></td>
+                <td><span class="diff-added">3000</span></td>
+                <td><span class="diff-changed">修改</span></td>
+              </tr>
+              <tr>
+                <td>6208-2RS</td>
+                <td>-</td>
+                <td>-</td>
+                <td><span class="diff-added">新增型号</span></td>
+                <td><span class="diff-added">新增</span></td>
+              </tr>
+              <tr>
+                <td>6203-ZZ</td>
+                <td>-</td>
+                <td><span class="diff-removed">已移除</span></td>
+                <td>-</td>
+                <td><span class="diff-removed">删除</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button class="btn btn-success btn-sm" onclick="showToast('已应用新版本变更')">✅ 应用新版本</button>
+            <button class="btn btn-outline btn-sm" onclick="showToast('已回滚到旧版本')">↩️ 回滚旧版本</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../scripts/utils.js"></script>
+  <script src="../scripts/mock-data.js"></script>
+  <script src="../scripts/storage.js"></script>
+  <script>
+    if (!UserStorage.isLoggedIn() || !UserStorage.get().isAdmin) { window.location.href = 'index.html'; }
+    initAllData();
+    document.getElementById('adminName').textContent = UserStorage.get().name;
+
+    const docs = DocStorage.getAll();
+    document.getElementById('docTable').innerHTML = docs.map((d, idx) => `
+      <tr>
+        <td><strong>${d.name}</strong></td>
+        <td>${d.type.toUpperCase()}</td>
+        <td>V${3 - Math.min(idx, 2)}.0</td>
+        <td>${d.pages ? d.pages + '页' : '-'} / ${d.size}</td>
+        <td>${d.products_count}个</td>
+        <td><span class="tag ${d.status === 'parsed' ? 'tag-active' : 'tag-pending'}">${d.status === 'parsed' ? '✓ 已解析' : '⏳ 解析中'}</span></td>
+        <td>${Utils.formatDate(d.upload_time)}</td>
+        <td>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-outline" onclick="showToast('上传新版本')">更新</button>
+            <button class="btn btn-sm btn-outline" onclick="showToast('查看版本历史')">历史</button>
+            <button class="btn btn-sm btn-danger" onclick="if(confirm('确定删除？'))showToast('已删除')">删除</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    function showToast(msg) {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = '✅ ' + msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2500);
+    }
+  </script>
+</body>
+</html>

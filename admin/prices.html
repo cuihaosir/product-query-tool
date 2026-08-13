@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>价格管理 - 管理后台</title>
+  <link rel="stylesheet" href="styles/admin.css">
+</head>
+<body>
+  <div class="admin-layout">
+    <div class="sidebar">
+      <div class="sidebar-logo"><span class="sidebar-logo-icon">⚙️</span><span>管理后台</span></div>
+      <div class="sidebar-menu">
+        <a href="dashboard.html" class="menu-item"><span class="menu-icon">📊</span>仪表盘</a>
+        <a href="users.html" class="menu-item"><span class="menu-icon">👥</span>用户管理</a>
+        <a href="approval.html" class="menu-item"><span class="menu-icon">✅</span>报价审批</a>
+        <a href="prices.html" class="menu-item active"><span class="menu-icon">💰</span>价格管理</a>
+        <a href="documents.html" class="menu-item"><span class="menu-icon">📚</span>文档管理</a>
+        <a href="verify.html" class="menu-item"><span class="menu-icon">🔍</span>数据校验</a>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">价格体系管理</div>
+        <div class="topbar-user">
+          <span class="topbar-avatar">👨‍💼</span>
+          <span id="adminName">管理员</span>
+          <button class="topbar-logout" onclick="UserStorage.logout();location.href='index.html'">退出</button>
+        </div>
+      </div>
+
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-title">产品价格表</div>
+          <div class="btn-group">
+            <button class="btn btn-outline" onclick="showToast('请选择Excel文件导入')">📥 批量导入</button>
+            <button class="btn btn-outline" onclick="showToast('价格表已导出')">📤 导出Excel</button>
+            <button class="btn btn-primary" onclick="openEditPrice()">+ 新增价格</button>
+          </div>
+        </div>
+
+        <!-- 价格表类型切换 -->
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <button class="btn btn-primary btn-sm" onclick="setType('all')">全部</button>
+          <button class="btn btn-outline btn-sm" onclick="setType('standard')">标准价</button>
+          <button class="btn btn-outline btn-sm" onclick="setType('tiered')">阶梯价</button>
+        </div>
+
+        <div class="card" style="padding:0;overflow:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>产品型号</th>
+                <th>产品名称</th>
+                <th>价格类型</th>
+                <th>数量范围</th>
+                <th>单价（含税）</th>
+                <th>成本价</th>
+                <th>毛利率</th>
+                <th>生效日期</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="priceTable"></tbody>
+          </table>
+        </div>
+
+        <!-- 价格变更历史 -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">📜 价格变更历史</div>
+          <table class="data-table">
+            <thead>
+              <tr><th>产品</th><th>变更类型</th><th>原价</th><th>新价</th><th>变更原因</th><th>操作人</th><th>时间</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>6205-2RS</td>
+                <td>阶梯价调整</td>
+                <td style="text-decoration:line-through;color:var(--text-tertiary)">¥5.50</td>
+                <td style="color:var(--error)">¥5.80</td>
+                <td>原材料涨价</td>
+                <td>张伟</td>
+                <td>2026-07-01</td>
+              </tr>
+              <tr>
+                <td>M8x30-8.8</td>
+                <td>标准价调整</td>
+                <td style="text-decoration:line-through;color:var(--text-tertiary)">¥0.30</td>
+                <td style="color:var(--error)">¥0.35</td>
+                <td>供应商调价</td>
+                <td>张伟</td>
+                <td>2026-06-15</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑价格弹窗 -->
+  <div class="modal-overlay" id="priceModal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">编辑价格</span>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">产品型号</label>
+          <select class="form-select" id="editProduct"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">价格类型</label>
+          <select class="form-select" id="editPriceType">
+            <option value="standard">标准价</option>
+            <option value="tiered">阶梯价</option>
+            <option value="customer">客户分级价</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">最小数量</label>
+          <input class="form-input" id="editMinQty" type="number" value="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">最大数量</label>
+          <input class="form-input" id="editMaxQty" type="number" placeholder="不限">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">含税单价</label>
+          <input class="form-input" id="editUnitPrice" type="number" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">成本价</label>
+          <input class="form-input" id="editCostPrice" type="number" step="0.01">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">生效日期</label>
+        <input class="form-input" id="editEffectDate" type="date">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="savePrice()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../scripts/utils.js"></script>
+  <script src="../scripts/mock-data.js"></script>
+  <script src="../scripts/storage.js"></script>
+  <script>
+    if (!UserStorage.isLoggedIn() || !UserStorage.get().isAdmin) { window.location.href = 'index.html'; }
+    initAllData();
+    document.getElementById('adminName').textContent = UserStorage.get().name;
+
+    function renderPriceTable() {
+      const prices = PriceStorage.getAll();
+      const products = ProductStorage.getAll();
+
+      document.getElementById('priceTable').innerHTML = prices.map(p => {
+        const product = products.find(pr => pr.id === p.product_id);
+        const margin = p.cost_price ? Math.round((1 - p.cost_price / p.unit_price) * 100) : '-';
+        const range = p.max_qty ? `${p.min_qty}-${p.max_qty}` : `${p.min_qty}+`;
+        return `
+          <tr>
+            <td><strong>${product ? product.sku : '-'}</strong></td>
+            <td style="font-size:12px">${product ? product.name : '-'}</td>
+            <td><span class="tag ${p.price_type === 'standard' ? 'tag-active' : 'tag-pending'}">${p.price_type === 'standard' ? '标准价' : '阶梯价'}</span></td>
+            <td>${range}</td>
+            <td style="font-weight:600;color:var(--primary)">¥${p.unit_price}</td>
+            <td style="color:var(--text-tertiary)">¥${p.cost_price || '-'}</td>
+            <td style="color:${margin > 30 ? 'var(--success)' : margin > 20 ? 'var(--warning)' : 'var(--error)'}">${margin}%</td>
+            <td>2026-07-01</td>
+            <td>
+              <div class="btn-group">
+                <button class="btn btn-sm btn-outline" onclick="openEditPrice()">编辑</button>
+                <button class="btn btn-sm btn-danger" onclick="showToast('价格已删除')">删除</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    window.openEditPrice = function() {
+      const products = ProductStorage.getAll();
+      document.getElementById('editProduct').innerHTML = products.map(p =>
+        `<option value="${p.id}">${p.sku} - ${p.name}</option>`
+      ).join('');
+      document.getElementById('priceModal').classList.add('show');
+    };
+
+    window.closeModal = function() {
+      document.getElementById('priceModal').classList.remove('show');
+    };
+
+    window.savePrice = function() {
+      closeModal();
+      showToast('价格已保存');
+    };
+
+    window.setType = function(type) {
+      showToast('切换到：' + (type === 'all' ? '全部' : type === 'standard' ? '标准价' : '阶梯价'));
+    };
+
+    function showToast(msg) {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = '✅ ' + msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2500);
+    }
+
+    renderPriceTable();
+  </script>
+</body>
+</html>
