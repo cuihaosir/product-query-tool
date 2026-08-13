@@ -114,6 +114,47 @@
     .suggestion-sub { font-size: 11px; color: var(--text-tertiary); margin-left: auto; }
 
     .input-wrapper { position: relative; flex: 1; }
+
+    /* 对比栏 */
+    .compare-bar {
+      display: none; padding: 8px 16px; background: white;
+      border-top: 1px solid var(--border); align-items: center; gap: 8px;
+    }
+    .compare-bar.show { display: flex; }
+    .compare-bar-text { flex: 1; font-size: 12px; color: var(--text-secondary); }
+    .compare-bar-btn {
+      padding: 6px 14px; background: var(--primary); color: white;
+      border: none; border-radius: 16px; font-size: 12px; font-weight: 500; cursor: pointer;
+    }
+    .compare-bar-clear {
+      padding: 6px 10px; background: none; border: 1px solid var(--border);
+      border-radius: 16px; font-size: 12px; color: var(--text-tertiary); cursor: pointer;
+    }
+
+    /* 筛选面板 */
+    .filter-panel {
+      display: none; padding: 12px 16px; background: white;
+      border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 8px;
+    }
+    .filter-panel.show { display: flex; }
+    .filter-chip {
+      padding: 5px 12px; border: 1px solid var(--border); border-radius: 16px;
+      font-size: 12px; color: var(--text-secondary); cursor: pointer; background: white;
+    }
+    .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+    .filter-toggle {
+      padding: 6px 12px; background: none; border: 1px solid var(--border);
+      border-radius: 16px; font-size: 12px; cursor: pointer; color: var(--text-secondary);
+    }
+    .filter-toggle.active { border-color: var(--primary); color: var(--primary); }
+
+    /* 多选勾选框 */
+    .result-checkbox {
+      width: 18px; height: 18px; border: 2px solid var(--border);
+      border-radius: 4px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+    }
+    .result-checkbox.checked { background: var(--primary); border-color: var(--primary); color: white; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -121,9 +162,30 @@
     <div class="navbar">
       <button class="navbar-back" onclick="location.href='dashboard.html'">‹</button>
       <div class="navbar-title">🔍 智能查询</div>
-      <div style="width:32px"></div>
+      <button class="filter-toggle" id="filterToggle" onclick="toggleFilter()">筛选</button>
+    </div>
+    <!-- 多维度筛选面板 -->
+    <div class="filter-panel" id="filterPanel">
+      <div style="width:100%;font-size:11px;color:var(--text-tertiary);margin-bottom:4px">按分类：</div>
+      <span class="filter-chip active" data-cat="all" onclick="setFilter(this)">全部</span>
+      <span class="filter-chip" data-cat="cat001" onclick="setFilter(this)">深沟球轴承</span>
+      <span class="filter-chip" data-cat="cat002" onclick="setFilter(this)">圆锥滚子轴承</span>
+      <span class="filter-chip" data-cat="cat003" onclick="setFilter(this)">电机配件</span>
+      <span class="filter-chip" data-cat="cat004" onclick="setFilter(this)">五金紧固件</span>
+      <span class="filter-chip" data-cat="cat005" onclick="setFilter(this)">密封件</span>
+      <span class="filter-chip" data-cat="cat006" onclick="setFilter(this)">传动带</span>
+      <div style="width:100%;font-size:11px;color:var(--text-tertiary);margin:8px 0 4px">按库存：</div>
+      <span class="filter-chip active" data-stock="all" onclick="setStockFilter(this)">全部</span>
+      <span class="filter-chip" data-stock="instock" onclick="setStockFilter(this)">有库存</span>
+      <span class="filter-chip" data-stock="low" onclick="setStockFilter(this)">库存紧张(&lt;100)</span>
     </div>
     <div class="chat-body" id="chatBody"></div>
+    <!-- 产品对比栏 -->
+    <div class="compare-bar" id="compareBar">
+      <span class="compare-bar-text">已选 <strong id="compareCount">0</strong> 个产品</span>
+      <button class="compare-bar-clear" onclick="clearCompareList()">清空</button>
+      <button class="compare-bar-btn" onclick="goCompare()">⚖️ 对比</button>
+    </div>
     <div class="chat-input-bar">
       <div class="input-wrapper">
         <input class="chat-input" id="chatInput" placeholder="输入型号或描述，如：6205、内径25mm的轴承" autocomplete="off">
@@ -175,17 +237,22 @@
         const prices = PriceStorage.getByProductId(p.id);
         const basePrice = prices.length > 0 ? prices[0].unit_price : null;
         const params = Object.entries(p.spec_params || {}).slice(0, 3).map(([k,v]) => `${k}:${v}`).join(' | ');
+        const isInCompare = compareList.includes(p.id);
         return `
-          <div class="result-card" onclick="location.href='detail.html?id=${p.id}'">
+          <div class="result-card">
             <div class="result-header">
-              <span class="result-sku">${p.sku}</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="result-checkbox ${isInCompare ? 'checked' : ''}" onclick="event.stopPropagation();toggleCompare('${p.id}', this)">${isInCompare ? '✓' : ''}</div>
+                <span class="result-sku" onclick="location.href='detail.html?id=${p.id}'">${p.sku}</span>
+              </div>
               <span class="result-price">${basePrice ? Utils.formatMoney(basePrice) + '/' + p.unit : ''}</span>
             </div>
-            <div class="result-name">${p.name}</div>
+            <div class="result-name" onclick="location.href='detail.html?id=${p.id}'">${p.name}</div>
             <div class="result-params">${params}</div>
             <div class="result-actions">
               <span class="result-action-btn" onclick="event.stopPropagation();location.href='detail.html?id=${p.id}'">📋 详情</span>
               <span class="result-action-btn" onclick="event.stopPropagation();addToQuote('${p.id}')">💰 加入报价</span>
+              <span class="result-action-btn" onclick="event.stopPropagation();toggleCompare('${p.id}', this.parentElement.parentElement.querySelector('.result-checkbox'))">⚖️ 对比</span>
               ${p.is_verified ? '<span style="font-size:10px;color:#52c41a">✓ 已校验</span>' : '<span style="font-size:10px;color:#faad14">⚠ 待校验</span>'}
             </div>
           </div>
@@ -349,6 +416,95 @@
     const urlQuery = Utils.getParam('q');
     if (urlQuery) {
       setTimeout(() => handleQuery(urlQuery), 1000);
+    }
+
+    // ===== 产品对比功能 =====
+    let compareList = JSON.parse(localStorage.getItem('pqt_compare_list') || '[]');
+    updateCompareBar();
+
+    window.toggleCompare = function(productId, checkboxEl) {
+      const idx = compareList.indexOf(productId);
+      if (idx === -1) {
+        if (compareList.length >= 5) {
+          Utils.toast('最多选择5个产品对比');
+          return;
+        }
+        compareList.push(productId);
+        if (checkboxEl) { checkboxEl.classList.add('checked'); checkboxEl.textContent = '✓'; }
+      } else {
+        compareList.splice(idx, 1);
+        if (checkboxEl) { checkboxEl.classList.remove('checked'); checkboxEl.textContent = ''; }
+      }
+      localStorage.setItem('pqt_compare_list', JSON.stringify(compareList));
+      updateCompareBar();
+    };
+
+    window.clearCompareList = function() {
+      compareList = [];
+      localStorage.setItem('pqt_compare_list', '[]');
+      updateCompareBar();
+      document.querySelectorAll('.result-checkbox').forEach(cb => {
+        cb.classList.remove('checked'); cb.textContent = '';
+      });
+    };
+
+    window.goCompare = function() {
+      if (compareList.length < 2) { Utils.toast('至少选2个产品'); return; }
+      location.href = 'compare.html';
+    };
+
+    function updateCompareBar() {
+      const bar = document.getElementById('compareBar');
+      const count = document.getElementById('compareCount');
+      if (compareList.length > 0) {
+        bar.classList.add('show');
+        count.textContent = compareList.length;
+      } else {
+        bar.classList.remove('show');
+      }
+    }
+
+    // ===== 多维度筛选功能 =====
+    let currentCatFilter = 'all';
+    let currentStockFilter = 'all';
+
+    window.toggleFilter = function() {
+      const panel = document.getElementById('filterPanel');
+      const btn = document.getElementById('filterToggle');
+      panel.classList.toggle('show');
+      btn.classList.toggle('active');
+    };
+
+    window.setFilter = function(el) {
+      document.querySelectorAll('[data-cat]').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      currentCatFilter = el.dataset.cat;
+      applyFilter();
+    };
+
+    window.setStockFilter = function(el) {
+      document.querySelectorAll('[data-stock]').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      currentStockFilter = el.dataset.stock;
+      applyFilter();
+    };
+
+    function applyFilter() {
+      let products = ProductStorage.getAll();
+      if (currentCatFilter !== 'all') {
+        products = products.filter(p => p.category_id === currentCatFilter);
+      }
+      if (currentStockFilter === 'instock') {
+        products = products.filter(p => p.stock > 0);
+      } else if (currentStockFilter === 'low') {
+        products = products.filter(p => p.stock > 0 && p.stock < 100);
+      }
+      if (products.length > 0) {
+        addMessage('agent', `按条件筛选到 <strong>${products.length}</strong> 个产品：`);
+        addProductCards(products);
+      } else {
+        addMessage('agent', '未找到符合筛选条件的产品');
+      }
     }
   </script>
 </body>

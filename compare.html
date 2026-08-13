@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>产品对比 - 产品参数智能查询</title>
+  <link rel="stylesheet" href="styles/common.css">
+  <style>
+    .compare-table-wrap { overflow-x: auto; margin: 0 16px; }
+    .compare-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+      background: white; border-radius: var(--radius-md); overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .compare-table th {
+      background: var(--primary); color: white; padding: 12px 10px;
+      text-align: center; font-weight: 500; position: sticky; top: 56px; z-index: 10;
+    }
+    .compare-table th:first-child { background: #0d47a1; text-align: left; width: 90px; }
+    .compare-table td {
+      padding: 10px; border-bottom: 1px solid var(--divider); text-align: center;
+    }
+    .compare-table td:first-child {
+      font-weight: 500; color: var(--text-secondary); text-align: left;
+      background: #fafafa; position: sticky; left: 0;
+    }
+    .compare-table tr:last-child td { border-bottom: none; }
+    .diff-highlight { background: #fff3cd; font-weight: 600; }
+
+    .compare-header {
+      padding: 16px; background: white; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .compare-count { font-size: 13px; color: var(--text-secondary); }
+
+    .compare-actions {
+      display: flex; gap: 8px; padding: 16px;
+    }
+
+    .empty-compare {
+      text-align: center; padding: 60px 24px; color: var(--text-tertiary);
+    }
+    .empty-compare-icon { font-size: 56px; margin-bottom: 12px; }
+    .empty-compare-text { font-size: 15px; margin-bottom: 8px; }
+    .empty-compare-hint { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="container" style="padding-bottom:16px">
+    <div class="navbar">
+      <button class="navbar-back" onclick="history.back()">‹</button>
+      <div class="navbar-title">产品对比</div>
+      <button class="navbar-action" onclick="clearCompare()">清空</button>
+    </div>
+
+    <div id="compareContent"></div>
+  </div>
+
+  <script src="scripts/utils.js"></script>
+  <script src="scripts/mock-data.js"></script>
+  <script src="scripts/storage.js"></script>
+  <script>
+    if (!UserStorage.isLoggedIn()) { window.location.href = 'index.html'; }
+    initAllData();
+
+    const compareIds = JSON.parse(localStorage.getItem('pqt_compare_list') || '[]');
+    const products = compareIds.map(id => ProductStorage.getById(id)).filter(Boolean);
+
+    function render() {
+      if (products.length < 2) {
+        document.getElementById('compareContent').innerHTML = `
+          <div class="empty-compare">
+            <div class="empty-compare-icon">⚖️</div>
+            <div class="empty-compare-text">至少选择2个产品进行对比</div>
+            <div class="empty-compare-hint">在查询结果中勾选产品，点击"对比"按钮</div>
+            <a href="chat.html" class="btn btn-primary" style="margin-top:20px;text-decoration:none">去搜索产品</a>
+          </div>
+        `;
+        return;
+      }
+
+      // 收集所有参数名
+      const allParamKeys = new Set();
+      products.forEach(p => {
+        if (p.spec_params) Object.keys(p.spec_params).forEach(k => allParamKeys.add(k));
+      });
+
+      // 基础信息行
+      const basicRows = [
+        { label: '产品型号', key: 'sku' },
+        { label: '产品名称', key: 'name' },
+        { label: '材质', key: 'material' },
+        { label: '单位', key: 'unit' },
+        { label: '库存', key: 'stock', format: v => v ? Utils.formatNumber(v) : '-' },
+        { label: '起订量', key: 'min_order', format: v => v || '-' },
+        { label: '交期(天)', key: 'delivery_days', format: v => v || '-' },
+        { label: '状态', key: 'is_verified', format: v => v ? '✅ 已校验' : '⚠️ 待校验' }
+      ];
+
+      // 价格行
+      const priceRow = {
+        label: '含税单价',
+        values: products.map(p => {
+          const price = PriceStorage.getUnitPrice(p.id, 1);
+          return price ? Utils.formatMoney(price) + '/' + p.unit : '-';
+        })
+      };
+
+      let html = `
+        <div class="compare-header">
+          <span class="compare-count">共 ${products.length} 个产品</span>
+          <button class="btn btn-sm btn-outline" onclick="exportCompare()">📤 导出对比表</button>
+        </div>
+        <div class="compare-table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>参数</th>
+                ${products.map(p => `<th>${p.sku}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      // 基础信息
+      basicRows.forEach(row => {
+        const values = products.map(p => row.format ? row.format(p[row.key]) : (p[row.key] || '-'));
+        const allSame = values.every(v => v === values[0]);
+        html += `<tr><td>${row.label}</td>${values.map(v => `<td class="${!allSame ? 'diff-highlight' : ''}">${v}</td>`).join('')}</tr>`;
+      });
+
+      // 价格
+      const allPriceSame = priceRow.values.every(v => v === priceRow.values[0]);
+      html += `<tr><td style="color:var(--primary);font-weight:600">💰 单价</td>${priceRow.values.map(v => `<td class="${!allPriceSame ? 'diff-highlight' : ''}" style="font-weight:600;color:var(--primary)">${v}</td>`).join('')}</tr>`;
+
+      // 规格参数
+      allParamKeys.forEach(key => {
+        const values = products.map(p => (p.spec_params && p.spec_params[key]) || '-');
+        const allSame = values.every(v => v === values[0]);
+        html += `<tr><td>${key}</td>${values.map(v => `<td class="${!allSame ? 'diff-highlight' : ''}">${v}</td>`).join('')}</tr>`;
+      });
+
+      html += '</tbody></table></div>';
+
+      // 操作按钮
+      html += `
+        <div class="compare-actions">
+          <a href="chat.html" class="btn btn-secondary" style="flex:1;text-decoration:none;text-align:center">继续搜索</a>
+          <button class="btn btn-primary" style="flex:1" onclick="addAllToQuote()">全部加入报价单</button>
+        </div>
+      `;
+
+      document.getElementById('compareContent').innerHTML = html;
+    }
+
+    window.clearCompare = function() {
+      localStorage.setItem('pqt_compare_list', '[]');
+      Utils.toast('已清空对比列表');
+      setTimeout(() => location.reload(), 500);
+    };
+
+    window.exportCompare = function() {
+      Utils.toast('对比表已导出（演示）');
+    };
+
+    window.addAllToQuote = function() {
+      const cart = JSON.parse(localStorage.getItem('pqt_quote_cart') || '[]');
+      products.forEach(p => {
+        if (!cart.find(i => i.product_id === p.id)) {
+          const price = PriceStorage.getUnitPrice(p.id, p.min_order || 1);
+          cart.push({
+            product_id: p.id, sku: p.sku, name: p.name,
+            qty: p.min_order || 1, unit: p.unit,
+            unit_price: price, amount: price * (p.min_order || 1)
+          });
+        }
+      });
+      localStorage.setItem('pqt_quote_cart', JSON.stringify(cart));
+      Utils.toast('已全部加入报价单');
+    };
+
+    render();
+  </script>
+</body>
+</html>
