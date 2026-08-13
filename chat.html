@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>智能查询 - 产品参数智能查询</title>
+  <link rel="stylesheet" href="styles/common.css">
+  <style>
+    .chat-page { display: flex; flex-direction: column; height: 100vh; max-width: 480px; margin: 0 auto; }
+    .chat-body { flex: 1; overflow-y: auto; padding: 12px 16px; background: var(--bg-page); }
+
+    .msg { display: flex; gap: 10px; margin-bottom: 16px; }
+    .msg-agent { flex-direction: row; }
+    .msg-user { flex-direction: row-reverse; }
+    .msg-avatar {
+      width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .msg-agent .msg-avatar { background: var(--primary-bg); }
+    .msg-user .msg-avatar { background: #e3f2fd; }
+    .msg-content { max-width: 80%; }
+    .msg-bubble {
+      padding: 12px 14px; border-radius: 14px;
+      font-size: 14px; line-height: 1.7;
+    }
+    .msg-agent .msg-bubble { background: white; box-shadow: var(--shadow-sm); border-top-left-radius: 4px; }
+    .msg-user .msg-bubble { background: var(--primary); color: white; border-top-right-radius: 4px; }
+    .msg-source {
+      margin-top: 6px; padding: 6px 10px; background: #f0f7ff;
+      border-radius: 6px; font-size: 11px; color: var(--primary);
+      display: flex; align-items: center; gap: 4px;
+    }
+    .msg-time { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; padding: 0 4px; }
+    .msg-agent .msg-time { text-align: left; }
+    .msg-user .msg-time { text-align: right; }
+
+    /* 产品结果卡片 */
+    .result-card {
+      margin-top: 8px; padding: 12px; background: #f8fafc;
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .result-card:hover { border-color: var(--primary); background: var(--primary-bg); }
+    .result-card:active { transform: scale(0.98); }
+    .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .result-sku { font-size: 14px; font-weight: 600; color: var(--primary); }
+    .result-price { font-size: 14px; font-weight: 600; color: var(--secondary); }
+    .result-name { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+    .result-params { font-size: 11px; color: var(--text-tertiary); }
+    .result-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .result-action-btn {
+      padding: 4px 10px; border-radius: 4px; font-size: 11px;
+      border: 1px solid var(--border); background: white; color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .result-action-btn:active { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); }
+
+    /* 建议标签 */
+    .suggest-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .suggest-tag {
+      padding: 6px 12px; background: var(--primary-bg); border-radius: 16px;
+      font-size: 12px; color: var(--primary); cursor: pointer;
+    }
+    .suggest-tag:active { background: var(--primary); color: white; }
+
+    /* 输入区域 */
+    .chat-input-bar {
+      display: flex; gap: 10px; padding: 12px 16px;
+      background: white; border-top: 1px solid var(--border);
+    }
+    .chat-input {
+      flex: 1; padding: 10px 14px; border: 1px solid var(--border);
+      border-radius: 20px; font-size: 14px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .chat-input:focus { border-color: var(--primary); }
+    .chat-send {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--primary); color: white; border: none;
+      font-size: 18px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s;
+    }
+    .chat-send:active { transform: scale(0.9); background: var(--primary-dark); }
+    .chat-send:disabled { background: var(--border); cursor: not-allowed; }
+
+    /* 打字动画 */
+    .typing-dots span {
+      display: inline-block; width: 6px; height: 6px;
+      background: var(--text-tertiary); border-radius: 50%;
+      margin: 0 2px; animation: blink 1.4s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%,80%,100%{opacity:.3} 40%{opacity:1} }
+
+    /* 搜索建议 */
+    .suggestions {
+      position: absolute; bottom: 100%; left: 0; right: 0;
+      background: white; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); margin-bottom: 4px;
+      box-shadow: var(--shadow-md); max-height: 200px; overflow-y: auto;
+      display: none;
+    }
+    .suggestions.show { display: block; }
+    .suggestion-item {
+      padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--divider);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .suggestion-item:last-child { border-bottom: none; }
+    .suggestion-item:hover { background: var(--primary-bg); }
+    .suggestion-icon { font-size: 14px; color: var(--text-tertiary); }
+    .suggestion-text { font-size: 14px; }
+    .suggestion-sub { font-size: 11px; color: var(--text-tertiary); margin-left: auto; }
+
+    .input-wrapper { position: relative; flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="chat-page">
+    <div class="navbar">
+      <button class="navbar-back" onclick="location.href='dashboard.html'">‹</button>
+      <div class="navbar-title">🔍 智能查询</div>
+      <div style="width:32px"></div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-input-bar">
+      <div class="input-wrapper">
+        <input class="chat-input" id="chatInput" placeholder="输入型号或描述，如：6205、内径25mm的轴承" autocomplete="off">
+        <div class="suggestions" id="suggestions"></div>
+      </div>
+      <button class="chat-send" id="sendBtn">↑</button>
+    </div>
+  </div>
+
+  <script src="scripts/utils.js"></script>
+  <script src="scripts/mock-data.js"></script>
+  <script src="scripts/storage.js"></script>
+  <script src="scripts/search-engine.js"></script>
+  <script>
+    // 登录检查
+    if (!UserStorage.isLoggedIn()) { window.location.href = 'index.html'; }
+    initAllData();
+
+    const chatBody = document.getElementById('chatBody');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const suggestionsEl = document.getElementById('suggestions');
+    const user = UserStorage.get();
+
+    /** 添加消息 */
+    function addMessage(type, html, source) {
+      const avatar = type === 'agent' ? '🤖' : (user.avatar || '👤');
+      const div = document.createElement('div');
+      div.className = `msg msg-${type}`;
+      let content = `
+        <div class="msg-avatar">${avatar}</div>
+        <div class="msg-content">
+          <div class="msg-bubble">${html}</div>`;
+      if (source && type === 'agent') {
+        content += `<div class="msg-source">📄 来源：${source}</div>`;
+      }
+      content += `<div class="msg-time">${Utils.formatDate(new Date().toISOString(), 'HH:mm')}</div>`;
+      content += `</div>`;
+      div.innerHTML = content;
+      chatBody.appendChild(div);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    /** 添加产品结果卡片 */
+    function addProductCards(products) {
+      const div = document.createElement('div');
+      div.className = 'msg msg-agent';
+      let cardsHtml = products.map(p => {
+        const prices = PriceStorage.getByProductId(p.id);
+        const basePrice = prices.length > 0 ? prices[0].unit_price : null;
+        const params = Object.entries(p.spec_params || {}).slice(0, 3).map(([k,v]) => `${k}:${v}`).join(' | ');
+        return `
+          <div class="result-card" onclick="location.href='detail.html?id=${p.id}'">
+            <div class="result-header">
+              <span class="result-sku">${p.sku}</span>
+              <span class="result-price">${basePrice ? Utils.formatMoney(basePrice) + '/' + p.unit : ''}</span>
+            </div>
+            <div class="result-name">${p.name}</div>
+            <div class="result-params">${params}</div>
+            <div class="result-actions">
+              <span class="result-action-btn" onclick="event.stopPropagation();location.href='detail.html?id=${p.id}'">📋 详情</span>
+              <span class="result-action-btn" onclick="event.stopPropagation();addToQuote('${p.id}')">💰 加入报价</span>
+              ${p.is_verified ? '<span style="font-size:10px;color:#52c41a">✓ 已校验</span>' : '<span style="font-size:10px;color:#faad14">⚠ 待校验</span>'}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      div.innerHTML = `
+        <div class="msg-avatar">🤖</div>
+        <div class="msg-content">${cardsHtml}</div>
+      `;
+      chatBody.appendChild(div);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    /** 显示打字状态 */
+    function showTyping() {
+      const div = document.createElement('div');
+      div.className = 'msg msg-agent';
+      div.id = 'typingMsg';
+      div.innerHTML = `
+        <div class="msg-avatar">🤖</div>
+        <div class="msg-content">
+          <div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+        </div>
+      `;
+      chatBody.appendChild(div);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function removeTyping() {
+      const el = document.getElementById('typingMsg');
+      if (el) el.remove();
+    }
+
+    /** 处理用户查询 */
+    function handleQuery(query) {
+      if (!query.trim()) return;
+      chatInput.value = '';
+      hideSuggestions();
+
+      // 显示用户消息
+      addMessage('user', query);
+
+      // 记录查询
+      const result = SearchEngine.search(query);
+      QueryRecordStorage.add({
+        query: query,
+        type: result.type,
+        result_count: result.results.length,
+        user_id: user.id
+      });
+
+      // 显示AI思考中
+      showTyping();
+
+      // 模拟延迟回复
+      setTimeout(() => {
+        removeTyping();
+
+        if (result.type === 'not_found') {
+          addMessage('agent', result.answer.replace(/\n/g, '<br>'), null);
+          // 添加建议
+          addSuggestTags();
+        } else {
+          // 有结果
+          if (result.answer) {
+            const formattedAnswer = result.answer
+              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+              .replace(/\n/g, '<br>')
+              .replace(/• /g, '&nbsp;&nbsp;• ');
+            addMessage('agent', formattedAnswer, result.source);
+          }
+          if (result.results.length > 0) {
+            addProductCards(result.results);
+          }
+        }
+      }, 800 + Math.random() * 500);
+    }
+
+    /** 添加建议标签 */
+    function addSuggestTags() {
+      const div = document.createElement('div');
+      div.className = 'msg msg-agent';
+      const suggests = ['6205-2RS', '6206-2RS', '32207', 'YE2-90L-4', '内径25mm轴承'];
+      div.innerHTML = `
+        <div class="msg-avatar">🤖</div>
+        <div class="msg-content">
+          <div class="suggest-tags">
+            ${suggests.map(s => `<span class="suggest-tag" onclick="handleQuery('${s}')">${s}</span>`).join('')}
+          </div>
+        </div>
+      `;
+      chatBody.appendChild(div);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    /** 加入报价单 */
+    window.addToQuote = function(productId) {
+      // 存入临时报价项
+      try {
+        const items = JSON.parse(localStorage.getItem('pqt_quote_cart') || '[]');
+        if (!items.find(i => i.product_id === productId)) {
+          const product = ProductStorage.getById(productId);
+          const price = PriceStorage.getUnitPrice(productId, 1);
+          items.push({
+            product_id: productId,
+            sku: product.sku,
+            name: product.name,
+            qty: product.min_order || 1,
+            unit: product.unit,
+            unit_price: price,
+            amount: price * (product.min_order || 1)
+          });
+          localStorage.setItem('pqt_quote_cart', JSON.stringify(items));
+          Utils.toast('已加入报价单');
+        } else {
+          Utils.toast('该产品已在报价单中');
+        }
+      } catch (e) {
+        Utils.toast('操作失败');
+      }
+    };
+
+    /** 搜索建议 */
+    function showSuggestions(input) {
+      if (!input.trim()) { hideSuggestions(); return; }
+      const suggestions = SearchEngine.getSuggestions(input);
+      if (suggestions.length === 0) { hideSuggestions(); return; }
+
+      suggestionsEl.innerHTML = suggestions.map(s => `
+        <div class="suggestion-item" onmousedown="handleQuery('${s.text}')">
+          <span class="suggestion-icon">${s.type === 'history' ? '⏱️' : '📦'}</span>
+          <span class="suggestion-text">${s.text}</span>
+          <span class="suggestion-sub">${s.sub || ''}</span>
+        </div>
+      `).join('');
+      suggestionsEl.classList.add('show');
+    }
+
+    function hideSuggestions() {
+      suggestionsEl.classList.remove('show');
+    }
+
+    // 事件绑定
+    sendBtn.addEventListener('click', () => handleQuery(chatInput.value));
+    chatInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') handleQuery(chatInput.value);
+    });
+    chatInput.addEventListener('input', Utils.debounce(function() {
+      showSuggestions(chatInput.value);
+    }, 200));
+    chatInput.addEventListener('blur', () => setTimeout(hideSuggestions, 200));
+
+    // 欢迎消息
+    setTimeout(() => {
+      addMessage('agent', `您好，${user.name}！我是产品参数智能助手 🤖<br><br>您可以：<br>&nbsp;&nbsp;• 输入产品型号查询参数（如 <strong>6205-2RS</strong>）<br>&nbsp;&nbsp;• 用自然语言描述需求（如 <strong>内径25mm的轴承有哪些</strong>）<br>&nbsp;&nbsp;• 询问产品对比（如 <strong>6205和6206的区别</strong>）<br>&nbsp;&nbsp;• 查询价格信息（如 <strong>1000套6205多少钱</strong>）<br><br>请开始您的查询吧！`);
+      addSuggestTags();
+    }, 300);
+
+    // 处理URL传入的查询参数
+    const urlQuery = Utils.getParam('q');
+    if (urlQuery) {
+      setTimeout(() => handleQuery(urlQuery), 1000);
+    }
+  </script>
+</body>
+</html>

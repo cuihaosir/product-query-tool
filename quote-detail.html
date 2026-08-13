@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>报价单详情 - 产品参数智能查询</title>
+  <link rel="stylesheet" href="styles/common.css">
+  <style>
+    .quote-header-card {
+      background: white; margin: 12px 16px; padding: 16px;
+      border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+    }
+    .quote-title-row {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+    }
+    .quote-no-text { font-size: 16px; font-weight: 700; }
+    .quote-info-row {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+      font-size: 13px; color: var(--text-secondary);
+    }
+
+    .items-card {
+      background: white; margin: 12px 16px; padding: 16px;
+      border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+    }
+    .item-row {
+      display: flex; align-items: center; padding: 10px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .item-row:last-child { border-bottom: none; }
+    .item-info { flex: 1; }
+    .item-sku { font-size: 13px; font-weight: 600; }
+    .item-name { font-size: 11px; color: var(--text-tertiary); }
+    .item-detail { font-size: 12px; color: var(--text-secondary); text-align: right; }
+    .item-amount { font-size: 13px; font-weight: 600; color: var(--primary); }
+
+    .summary-card {
+      background: white; margin: 12px 16px; padding: 16px;
+      border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+    }
+    .summary-row {
+      display: flex; justify-content: space-between; padding: 6px 0;
+      font-size: 14px; color: var(--text-secondary);
+    }
+    .summary-row.total {
+      border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px;
+      font-size: 16px; font-weight: 700; color: var(--text-primary);
+    }
+    .summary-row.total .amount { color: var(--primary); }
+
+    .action-bar {
+      position: sticky; bottom: 0; padding: 12px 16px;
+      background: white; border-top: 1px solid var(--border);
+      display: flex; gap: 10px;
+    }
+    .action-btn {
+      flex: 1; padding: 12px; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 500; cursor: pointer; text-align: center; border: none;
+    }
+    .action-btn.primary { background: var(--primary); color: white; }
+    .action-btn.primary:active { background: var(--primary-dark); }
+    .action-btn.outline { background: white; color: var(--primary); border: 1px solid var(--primary); }
+    .action-btn.danger { background: white; color: var(--error); border: 1px solid var(--error); }
+  </style>
+</head>
+<body>
+  <div class="container" style="padding-bottom:0">
+    <div class="navbar">
+      <button class="navbar-back" onclick="location.href='quote.html'">‹</button>
+      <div class="navbar-title">报价单详情</div>
+      <div style="width:32px"></div>
+    </div>
+
+    <div id="quoteContent"></div>
+
+    <div style="height:70px"></div>
+    <div class="action-bar" id="actionBar"></div>
+  </div>
+
+  <script src="scripts/utils.js"></script>
+  <script src="scripts/mock-data.js"></script>
+  <script src="scripts/storage.js"></script>
+  <script>
+    if (!UserStorage.isLoggedIn()) { window.location.href = 'index.html'; }
+    initAllData();
+
+    const quoteId = Utils.getParam('id');
+    const quote = QuotationStorage.getById(quoteId);
+
+    if (!quote) {
+      Utils.toast('报价单不存在');
+      setTimeout(() => location.href = 'quote.html', 1000);
+    } else {
+      renderQuoteDetail(quote);
+    }
+
+    function renderQuoteDetail(q) {
+      let html = '';
+
+      // 基本信息卡
+      html += `
+        <div class="quote-header-card">
+          <div class="quote-title-row">
+            <span class="quote-no-text">${q.quotation_no}</span>
+            <span class="tag ${Utils.statusClass(q.status)}">${Utils.statusText(q.status)}</span>
+          </div>
+          <div class="quote-info-row">🏢 客户：${q.customer_name}</div>
+          <div class="quote-info-row">👤 联系人：${q.contact_name || '-'}</div>
+          <div class="quote-info-row">📅 报价日期：${Utils.formatDate(q.created_at)}</div>
+          <div class="quote-info-row">⏰ 有效期至：${q.valid_until || '-'}</div>
+          <div class="quote-info-row">👨‍💻 业务员：${q.salesperson_name || '-'}</div>
+          ${q.payment_terms ? `<div class="quote-info-row">💳 付款条件：${q.payment_terms}</div>` : ''}
+          ${q.delivery_time ? `<div class="quote-info-row">🚚 交货期：${q.delivery_time}</div>` : ''}
+        </div>
+      `;
+
+      // 产品明细
+      html += `<div class="items-card">
+        <div class="card-title">📦 产品明细</div>`;
+      q.items.forEach((item, idx) => {
+        html += `
+          <div class="item-row">
+            <div class="item-info">
+              <div class="item-sku">${idx + 1}. ${item.sku}</div>
+              <div class="item-name">${item.name}</div>
+            </div>
+            <div class="item-detail">
+              <div>${item.qty}${item.unit} × ¥${item.unit_price}</div>
+              <div class="item-amount">${Utils.formatMoney(item.amount)}</div>
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+
+      // 金额汇总
+      html += `
+        <div class="summary-card">
+          <div class="card-title">💰 金额汇总</div>
+          <div class="summary-row"><span>小计</span><span>${Utils.formatMoney(q.subtotal)}</span></div>
+          <div class="summary-row"><span>税额(13%)</span><span>${Utils.formatMoney(q.tax_amount)}</span></div>
+          ${q.shipping_fee ? `<div class="summary-row"><span>运费</span><span>${Utils.formatMoney(q.shipping_fee)}</span></div>` : ''}
+          <div class="summary-row total"><span>合计金额</span><span class="amount">${Utils.formatMoney(q.total_amount)}</span></div>
+        </div>
+      `;
+
+      document.getElementById('quoteContent').innerHTML = html;
+
+      // 操作按钮
+      let actions = '';
+      if (q.status === 'draft') {
+        actions = `
+          <button class="action-btn outline" onclick="updateStatus('${q.id}', 'sent')">📤 发送客户</button>
+          <button class="action-btn primary" onclick="exportQuote()">📄 导出PDF</button>
+        `;
+      } else if (q.status === 'sent') {
+        actions = `
+          <button class="action-btn outline" onclick="updateStatus('${q.id}', 'confirmed')">✅ 标记确认</button>
+          <button class="action-btn danger" onclick="updateStatus('${q.id}', 'rejected')">❌ 标记拒绝</button>
+        `;
+      } else {
+        actions = `<button class="action-btn primary" onclick="exportQuote()">📄 导出PDF</button>`;
+      }
+      document.getElementById('actionBar').innerHTML = actions;
+    }
+
+    window.updateStatus = function(id, status) {
+      QuotationStorage.update(id, { status, sent_at: status === 'sent' ? new Date().toISOString() : undefined });
+      Utils.toast('状态已更新');
+      setTimeout(() => location.reload(), 500);
+    };
+
+    window.exportQuote = function() {
+      Utils.toast('报价单已导出（演示）');
+    };
+  </script>
+</body>
+</html>

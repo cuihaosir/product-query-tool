@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>报价管理 - 产品参数智能查询</title>
+  <link rel="stylesheet" href="styles/common.css">
+  <style>
+    .page-header {
+      background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+      padding: 16px 16px 50px; color: white;
+    }
+    .header-stats {
+      display: flex; justify-content: space-around; text-align: center; margin-top: 16px;
+    }
+    .header-stat-num { font-size: 24px; font-weight: 700; }
+    .header-stat-label { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+
+    .tab-bar {
+      display: flex; margin: -24px 16px 12px; background: white;
+      border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+      overflow: hidden; position: relative; z-index: 10;
+    }
+    .tab-item {
+      flex: 1; padding: 12px 8px; text-align: center; font-size: 13px;
+      color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-item.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 500; }
+
+    .quote-card {
+      background: white; margin: 10px 16px; border-radius: var(--radius-md);
+      padding: 14px; box-shadow: var(--shadow-sm); cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .quote-card:active { transform: scale(0.98); }
+    .quote-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .quote-no { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .quote-status { padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+    .quote-customer { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+    .quote-info { display: flex; align-items: center; justify-content: space-between; }
+    .quote-amount { font-size: 16px; font-weight: 600; color: var(--primary); }
+    .quote-date { font-size: 11px; color: var(--text-tertiary); }
+    .quote-items-preview { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
+
+    /* 新建报价单弹窗 */
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); z-index: 200;
+      justify-content: center; align-items: flex-end;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-content {
+      width: 100%; max-width: 480px; background: white;
+      border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+      padding: 24px 16px; max-height: 90vh; overflow-y: auto;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+    }
+    .modal-title { font-size: 18px; font-weight: 600; }
+    .modal-close { font-size: 24px; cursor: pointer; color: var(--text-tertiary); background: none; border: none; }
+
+    .cart-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .cart-item-info { flex: 1; }
+    .cart-item-sku { font-size: 13px; font-weight: 600; }
+    .cart-item-name { font-size: 11px; color: var(--text-tertiary); }
+    .cart-item-qty {
+      width: 60px; padding: 6px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 13px; text-align: center;
+    }
+    .cart-item-amount { font-size: 13px; font-weight: 600; color: var(--primary); min-width: 60px; text-align: right; }
+    .cart-item-del { font-size: 16px; cursor: pointer; color: var(--error); padding: 4px; }
+
+    .quote-summary {
+      margin-top: 16px; padding: 12px; background: var(--bg-page);
+      border-radius: var(--radius-sm);
+    }
+    .summary-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+    .summary-total { font-size: 16px; font-weight: 700; color: var(--primary); }
+
+    .new-quote-btn {
+      position: fixed; bottom: 80px; right: calc(50% - 210px);
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--primary); color: white; border: none;
+      font-size: 24px; box-shadow: var(--shadow-lg); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; z-index: 50;
+    }
+    .new-quote-btn:active { transform: scale(0.9); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="navbar" style="position:absolute;top:0;left:0;right:0;background:transparent;border:none;z-index:20;color:white">
+      <button class="navbar-back" onclick="location.href='dashboard.html'" style="color:white">‹</button>
+      <div class="navbar-title" style="color:white">报价管理</div>
+      <div style="width:32px"></div>
+    </div>
+
+    <div class="page-header" style="padding-top:56px">
+      <div class="header-stats">
+        <div>
+          <div class="header-stat-num" id="statTotal">0</div>
+          <div class="header-stat-label">全部报价</div>
+        </div>
+        <div>
+          <div class="header-stat-num" id="statConfirmed">0</div>
+          <div class="header-stat-label">已确认</div>
+        </div>
+        <div>
+          <div class="header-stat-num" id="statAmount">¥0</div>
+          <div class="header-stat-label">报价总额</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 状态Tab -->
+    <div class="tab-bar" id="tabBar">
+      <div class="tab-item active" data-status="all" onclick="switchTab('all')">全部</div>
+      <div class="tab-item" data-status="draft" onclick="switchTab('draft')">草稿</div>
+      <div class="tab-item" data-status="sent" onclick="switchTab('sent')">已发送</div>
+      <div class="tab-item" data-status="confirmed" onclick="switchTab('confirmed')">已确认</div>
+    </div>
+
+    <!-- 报价单列表 -->
+    <div id="quoteList"></div>
+
+    <!-- 新建报价单按钮 -->
+    <button class="new-quote-btn" onclick="openNewQuote()">+</button>
+
+    <!-- 底部Tab -->
+    <div class="tabbar">
+      <a href="dashboard.html" class="tabbar-item">
+        <div class="tabbar-icon">🏠</div><div>首页</div>
+      </a>
+      <a href="chat.html" class="tabbar-item">
+        <div class="tabbar-icon">🔍</div><div>查询</div>
+      </a>
+      <a href="quote.html" class="tabbar-item active">
+        <div class="tabbar-icon">📋</div><div>报价</div>
+      </a>
+      <a href="knowledge.html" class="tabbar-item">
+        <div class="tabbar-icon">📚</div><div>知识库</div>
+      </a>
+      <a href="analytics.html" class="tabbar-item">
+        <div class="tabbar-icon">📊</div><div>统计</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 新建报价单弹窗 -->
+  <div class="modal-overlay" id="newQuoteModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">新建报价单</span>
+        <button class="modal-close" onclick="closeNewQuote()">×</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">客户名称</label>
+        <select class="form-input" id="quoteCustomer" style="appearance:auto">
+          <option value="">请选择客户</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">联系人</label>
+        <input class="form-input" id="quoteContact" placeholder="联系人姓名">
+      </div>
+      <div class="form-group">
+        <label class="form-label">有效期</label>
+        <input class="form-input" id="quoteValidDate" type="date">
+      </div>
+
+      <div style="font-size:14px;font-weight:600;margin:16px 0 8px">产品明细</div>
+      <div id="cartItems"></div>
+      <button class="btn btn-secondary btn-block btn-sm" style="margin-top:8px" onclick="location.href='chat.html'">+ 搜索添加产品</button>
+
+      <div class="quote-summary" id="quoteSummary"></div>
+
+      <button class="btn btn-primary btn-block btn-lg" style="margin-top:16px" onclick="submitQuote()">生成报价单</button>
+    </div>
+  </div>
+
+  <script src="scripts/utils.js"></script>
+  <script src="scripts/mock-data.js"></script>
+  <script src="scripts/storage.js"></script>
+  <script>
+    if (!UserStorage.isLoggedIn()) { window.location.href = 'index.html'; }
+    initAllData();
+
+    const user = UserStorage.get();
+    let currentTab = 'all';
+
+    // 渲染统计
+    function renderStats() {
+      const stats = QuotationStorage.getStats();
+      document.getElementById('statTotal').textContent = stats.total;
+      document.getElementById('statConfirmed').textContent = stats.confirmed;
+      document.getElementById('statAmount').textContent = '¥' + Math.round(stats.totalAmount).toLocaleString();
+    }
+
+    // 切换Tab
+    window.switchTab = function(status) {
+      currentTab = status;
+      document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.tab-item[data-status="${status}"]`).classList.add('active');
+      renderQuoteList();
+    };
+
+    // 渲染报价单列表
+    function renderQuoteList() {
+      let quotes = QuotationStorage.getAll();
+      if (currentTab !== 'all') {
+        quotes = quotes.filter(q => q.status === currentTab);
+      }
+
+      document.getElementById('quoteList').innerHTML = quotes.length === 0
+        ? '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">暂无报价单</div></div>'
+        : quotes.map(q => `
+          <div class="quote-card" onclick="viewQuote('${q.id}')">
+            <div class="quote-header">
+              <span class="quote-no">${q.quotation_no}</span>
+              <span class="tag ${Utils.statusClass(q.status)}">${Utils.statusText(q.status)}</span>
+            </div>
+            <div class="quote-customer">🏢 ${q.customer_name}${q.contact_name ? ' · ' + q.contact_name : ''}</div>
+            <div class="quote-items-preview">${q.items.map(i => i.sku).join('、')}</div>
+            <div class="quote-info">
+              <span class="quote-amount">${Utils.formatMoney(q.total_amount)}</span>
+              <span class="quote-date">${Utils.formatDate(q.created_at, 'MM-DD HH:mm')}</span>
+            </div>
+          </div>
+        `).join('');
+    }
+
+    // 查看报价单
+    window.viewQuote = function(id) {
+      location.href = 'quote-detail.html?id=' + id;
+    };
+
+    // 打开新建报价单
+    window.openNewQuote = function() {
+      // 加载客户列表
+      const customers = CustomerStorage.getAll();
+      document.getElementById('quoteCustomer').innerHTML = '<option value="">请选择客户</option>' +
+        customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+      // 设置默认有效期（30天后）
+      const validDate = new Date();
+      validDate.setDate(validDate.getDate() + 30);
+      document.getElementById('quoteValidDate').value = validDate.toISOString().slice(0, 10);
+
+      renderCartItems();
+      document.getElementById('newQuoteModal').classList.add('show');
+    };
+
+    window.closeNewQuote = function() {
+      document.getElementById('newQuoteModal').classList.remove('show');
+    };
+
+    // 渲染购物车
+    function renderCartItems() {
+      const items = JSON.parse(localStorage.getItem('pqt_quote_cart') || '[]');
+      
+      if (items.length === 0) {
+        document.getElementById('cartItems').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:13px">暂无产品，请先搜索添加</div>';
+        document.getElementById('quoteSummary').innerHTML = '';
+        return;
+      }
+
+      document.getElementById('cartItems').innerHTML = items.map((item, idx) => `
+        <div class="cart-item">
+          <div class="cart-item-info">
+            <div class="cart-item-sku">${item.sku}</div>
+            <div class="cart-item-name">${item.name}</div>
+          </div>
+          <input class="cart-item-qty" type="number" value="${item.qty}" min="1" onchange="updateCartQty(${idx}, this.value)">
+          <div class="cart-item-amount">${Utils.formatMoney(item.amount)}</div>
+          <span class="cart-item-del" onclick="removeCartItem(${idx})">✕</span>
+        </div>
+      `).join('');
+
+      // 汇总
+      const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
+      const tax = subtotal * 0.13;
+      const total = subtotal + tax;
+      document.getElementById('quoteSummary').innerHTML = `
+        <div class="summary-row"><span>小计</span><span>${Utils.formatMoney(subtotal)}</span></div>
+        <div class="summary-row"><span>税额(13%)</span><span>${Utils.formatMoney(tax)}</span></div>
+        <div class="summary-row" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
+          <span style="font-weight:600">合计</span>
+          <span class="summary-total">${Utils.formatMoney(total)}</span>
+        </div>
+      `;
+    }
+
+    window.updateCartQty = function(idx, qty) {
+      const items = JSON.parse(localStorage.getItem('pqt_quote_cart') || '[]');
+      if (items[idx]) {
+        items[idx].qty = Math.max(1, parseInt(qty) || 1);
+        // 重新计算价格
+        const price = PriceStorage.getUnitPrice(items[idx].product_id, items[idx].qty);
+        if (price) {
+          items[idx].unit_price = price;
+          items[idx].amount = price * items[idx].qty;
+        }
+        localStorage.setItem('pqt_quote_cart', JSON.stringify(items));
+        renderCartItems();
+      }
+    };
+
+    window.removeCartItem = function(idx) {
+      const items = JSON.parse(localStorage.getItem('pqt_quote_cart') || '[]');
+      items.splice(idx, 1);
+      localStorage.setItem('pqt_quote_cart', JSON.stringify(items));
+      renderCartItems();
+    };
+
+    // 提交报价单
+    window.submitQuote = function() {
+      const customerId = document.getElementById('quoteCustomer').value;
+      const contact = document.getElementById('quoteContact').value;
+      const validDate = document.getElementById('quoteValidDate').value;
+      const items = JSON.parse(localStorage.getItem('pqt_quote_cart') || '[]');
+
+      if (!customerId) { Utils.toast('请选择客户'); return; }
+      if (items.length === 0) { Utils.toast('请添加产品'); return; }
+
+      const customer = CustomerStorage.getById(customerId);
+      const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
+      const taxAmount = subtotal * 0.13;
+      const total = subtotal + taxAmount;
+
+      const quotation = {
+        id: Utils.generateId(),
+        quotation_no: Utils.generateQuoteNo(),
+        customer_id: customerId,
+        customer_name: customer ? customer.name : '',
+        contact_name: contact || (customer ? customer.contact : ''),
+        salesperson_id: user.id,
+        salesperson_name: user.name,
+        items: items,
+        subtotal: subtotal,
+        tax_amount: taxAmount,
+        shipping_fee: 0,
+        total_amount: total,
+        discount_rate: 1.0,
+        status: 'draft',
+        valid_until: validDate,
+        payment_terms: '',
+        delivery_time: '',
+        created_at: new Date().toISOString(),
+        sent_at: null
+      };
+
+      QuotationStorage.add(quotation);
+      localStorage.setItem('pqt_quote_cart', '[]');
+      closeNewQuote();
+      renderStats();
+      renderQuoteList();
+      Utils.toast('报价单已生成！');
+    };
+
+    // 初始化
+    renderStats();
+    renderQuoteList();
+  </script>
+</body>
+</html>

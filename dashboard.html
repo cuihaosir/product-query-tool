@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>首页 - 产品参数智能查询</title>
+  <link rel="stylesheet" href="styles/common.css">
+  <style>
+    .dash-header {
+      background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+      padding: 20px 16px 60px;
+      color: white;
+    }
+    .dash-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .dash-user { display: flex; align-items: center; gap: 10px; }
+    .dash-avatar {
+      width: 40px; height: 40px; background: rgba(255,255,255,0.2);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .dash-name { font-size: 16px; font-weight: 600; }
+    .dash-role { font-size: 12px; opacity: 0.85; }
+    .dash-logout {
+      font-size: 12px; padding: 4px 10px; background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3); border-radius: 12px;
+      color: white; cursor: pointer;
+    }
+    .dash-search {
+      background: white; border-radius: 24px; padding: 12px 16px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15); cursor: pointer;
+    }
+    .dash-search-icon { font-size: 18px; color: var(--primary); }
+    .dash-search-text { font-size: 15px; color: var(--text-tertiary); flex: 1; }
+    .dash-search-btn {
+      background: var(--primary); color: white; border: none;
+      border-radius: 50%; width: 32px; height: 32px; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 10px; margin: -36px 16px 14px;
+      position: relative; z-index: 10;
+    }
+    .kpi-card {
+      background: white; border-radius: var(--radius-md);
+      padding: 14px; box-shadow: var(--shadow-md);
+    }
+    .kpi-icon { font-size: 22px; margin-bottom: 6px; }
+    .kpi-value { font-size: 22px; font-weight: 700; }
+    .kpi-label { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+    .quick-entry {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 12px; padding: 0 16px; margin: 16px 0;
+    }
+    .quick-btn {
+      background: white; border-radius: var(--radius-md);
+      padding: 14px 8px; text-align: center; text-decoration: none;
+      color: var(--text-primary); box-shadow: var(--shadow-sm);
+      transition: transform 0.15s;
+    }
+    .quick-btn:active { transform: scale(0.95); }
+    .quick-btn-icon { font-size: 26px; margin-bottom: 6px; }
+    .quick-btn-label { font-size: 12px; color: var(--text-secondary); }
+
+    .section-title {
+      font-size: 15px; font-weight: 600; padding: 16px 16px 8px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .section-more { font-size: 12px; color: var(--text-tertiary); text-decoration: none; }
+
+    .recent-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; background: white; border-bottom: 1px solid var(--divider);
+      cursor: pointer;
+    }
+    .recent-item:first-child { border-radius: var(--radius-md) var(--radius-md) 0 0; }
+    .recent-item:last-child { border-radius: 0 0 var(--radius-md) var(--radius-md); border-bottom: none; }
+    .recent-item:active { background: var(--bg-page); }
+    .recent-icon { font-size: 16px; color: var(--text-tertiary); }
+    .recent-text { flex: 1; font-size: 14px; }
+    .recent-time { font-size: 11px; color: var(--text-tertiary); }
+    .recent-list { margin: 0 16px; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); overflow: hidden; }
+
+    .hot-products {
+      display: flex; gap: 10px; padding: 8px 16px;
+      overflow-x: auto; white-space: nowrap;
+    }
+    .hot-tag {
+      padding: 6px 14px; background: var(--primary-bg);
+      border-radius: 16px; font-size: 13px; color: var(--primary);
+      cursor: pointer; flex-shrink: 0;
+    }
+    .hot-tag:active { background: var(--primary); color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="dash-header">
+      <div class="dash-top">
+        <div class="dash-user">
+          <div class="dash-avatar" id="userAvatar">👤</div>
+          <div>
+            <div class="dash-name" id="userName">用户</div>
+            <div class="dash-role" id="userRole">角色</div>
+          </div>
+        </div>
+        <button class="dash-logout" onclick="handleLogout()">退出</button>
+      </div>
+      <div class="dash-search" onclick="location.href='chat.html'">
+        <span class="dash-search-icon">🔍</span>
+        <span class="dash-search-text">输入型号或描述查询产品参数...</span>
+        <span class="dash-search-btn">→</span>
+      </div>
+    </div>
+
+    <!-- KPI 指标 -->
+    <div class="kpi-grid" id="kpiGrid">
+      <div class="kpi-card">
+        <div class="kpi-icon">📦</div>
+        <div class="kpi-value" id="kpiProducts">0</div>
+        <div class="kpi-label">产品型号</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📄</div>
+        <div class="kpi-value" id="kpiDocs">0</div>
+        <div class="kpi-label">知识文档</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">🔍</div>
+        <div class="kpi-value" id="kpiQueries">0</div>
+        <div class="kpi-label">今日查询</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📋</div>
+        <div class="kpi-value" id="kpiQuotes">0</div>
+        <div class="kpi-label">报价单</div>
+      </div>
+    </div>
+
+    <!-- 快捷入口 -->
+    <div class="quick-entry">
+      <a href="chat.html" class="quick-btn">
+        <div class="quick-btn-icon">🤖</div>
+        <div class="quick-btn-label">智能查询</div>
+      </a>
+      <a href="quote.html" class="quick-btn">
+        <div class="quick-btn-icon">📋</div>
+        <div class="quick-btn-label">我的报价</div>
+      </a>
+      <a href="knowledge.html" class="quick-btn">
+        <div class="quick-btn-icon">📚</div>
+        <div class="quick-btn-label">知识库</div>
+      </a>
+      <a href="analytics.html" class="quick-btn">
+        <div class="quick-btn-icon">📊</div>
+        <div class="quick-btn-label">统计分析</div>
+      </a>
+    </div>
+
+    <!-- 热门型号 -->
+    <div class="section-title">
+      🔥 热门型号
+    </div>
+    <div class="hot-products" id="hotProducts"></div>
+
+    <!-- 最近查询 -->
+    <div class="section-title">
+      ⏱️ 最近查询
+      <a href="chat.html" class="section-more">查看全部 ›</a>
+    </div>
+    <div class="recent-list" id="recentList"></div>
+
+    <!-- 底部Tab -->
+    <div class="tabbar">
+      <a href="dashboard.html" class="tabbar-item active">
+        <div class="tabbar-icon">🏠</div><div>首页</div>
+      </a>
+      <a href="chat.html" class="tabbar-item">
+        <div class="tabbar-icon">🔍</div><div>查询</div>
+      </a>
+      <a href="quote.html" class="tabbar-item">
+        <div class="tabbar-icon">📋</div><div>报价</div>
+      </a>
+      <a href="knowledge.html" class="tabbar-item">
+        <div class="tabbar-icon">📚</div><div>知识库</div>
+      </a>
+      <a href="analytics.html" class="tabbar-item">
+        <div class="tabbar-icon">📊</div><div>统计</div>
+      </a>
+    </div>
+  </div>
+
+  <script src="scripts/utils.js"></script>
+  <script src="scripts/mock-data.js"></script>
+  <script src="scripts/storage.js"></script>
+  <script>
+    // 登录检查
+    if (!UserStorage.isLoggedIn()) { window.location.href = 'index.html'; }
+    initAllData();
+
+    // 渲染用户信息
+    const user = UserStorage.get();
+    document.getElementById('userAvatar').textContent = user.avatar || '👤';
+    document.getElementById('userName').textContent = user.name;
+    const roleMap = { admin: '系统管理员', sales: '业务员', engineer: '技术支持' };
+    document.getElementById('userRole').textContent = roleMap[user.role] || user.role;
+
+    // 渲染KPI
+    const products = ProductStorage.getAll();
+    const docStats = DocStorage.getStats();
+    const queryStats = QueryRecordStorage.getStats();
+    const quoteStats = QuotationStorage.getStats();
+
+    document.getElementById('kpiProducts').textContent = products.length;
+    document.getElementById('kpiDocs').textContent = docStats.total;
+    document.getElementById('kpiQueries').textContent = queryStats.today;
+    document.getElementById('kpiQuotes').textContent = quoteStats.total;
+
+    // 渲染热门型号
+    const hotSkus = ['6205-2RS', '6206-2RS', '32207', 'YE2-90L-4', 'M8x30-8.8', 'TC-25x42x8', 'A-68'];
+    document.getElementById('hotProducts').innerHTML = hotSkus.map(sku =>
+      `<span class="hot-tag" onclick="location.href='chat.html?q=${encodeURIComponent(sku)}'">${sku}</span>`
+    ).join('');
+
+    // 渲染最近查询
+    const recentRecords = QueryRecordStorage.getRecent(5);
+    document.getElementById('recentList').innerHTML = recentRecords.length === 0
+      ? '<div style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:13px">暂无查询记录</div>'
+      : recentRecords.map(r => `
+        <div class="recent-item" onclick="location.href='chat.html?q=${encodeURIComponent(r.query)}'">
+          <span class="recent-icon">🔍</span>
+          <span class="recent-text">${r.query}</span>
+          <span class="recent-time">${Utils.relativeTime(r.time)}</span>
+        </div>
+      `).join('');
+
+    function handleLogout() {
+      UserStorage.logout();
+      window.location.href = 'index.html';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>产品详情 - 产品参数智能查询</title>
+  <link rel="stylesheet" href="styles/common.css">
+  <style>
+    .detail-header {
+      background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+      padding: 16px 16px 56px;
+      color: white;
+      text-align: center;
+    }
+    .detail-icon { font-size: 48px; margin-bottom: 8px; }
+    .detail-sku { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .detail-name { font-size: 14px; opacity: 0.9; }
+    .detail-badges { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+    .detail-badge {
+      padding: 3px 12px; border-radius: 12px;
+      background: rgba(255,255,255,0.2); font-size: 12px;
+    }
+
+    .info-card {
+      margin: -36px 16px 12px; background: white;
+      border-radius: var(--radius-lg); padding: 16px;
+      box-shadow: var(--shadow-md); position: relative; z-index: 10;
+    }
+    .info-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; text-align: center;
+    }
+    .info-val { font-size: 18px; font-weight: 600; color: var(--primary); }
+    .info-label { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+    .section-card {
+      background: white; margin: 12px 16px; border-radius: var(--radius-md);
+      padding: 16px; box-shadow: var(--shadow-sm);
+    }
+    .section-title {
+      font-size: 15px; font-weight: 600; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .param-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--divider);
+    }
+    .param-row:last-child { border-bottom: none; }
+    .param-key { font-size: 13px; color: var(--text-secondary); }
+    .param-val { font-size: 13px; font-weight: 500; color: var(--text-primary); text-align: right; }
+
+    .price-table { width: 100%; margin-top: 8px; }
+    .price-table th {
+      font-size: 12px; color: var(--text-secondary); font-weight: 500;
+      padding: 8px 6px; text-align: left; background: var(--bg-page);
+      border-radius: 4px;
+    }
+    .price-table td { font-size: 13px; padding: 8px 6px; border-bottom: 1px solid var(--divider); }
+    .price-table .price-highlight { color: var(--primary); font-weight: 600; }
+
+    .alt-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .alt-tag {
+      padding: 6px 12px; background: var(--primary-bg); border-radius: 16px;
+      font-size: 12px; color: var(--primary); cursor: pointer;
+    }
+    .alt-tag:active { background: var(--primary); color: white; }
+
+    .action-bar {
+      position: sticky; bottom: 0; padding: 12px 16px;
+      background: white; border-top: 1px solid var(--border);
+      display: flex; gap: 10px;
+    }
+    .action-btn-secondary {
+      flex: 1; padding: 12px; border: 1px solid var(--primary);
+      background: white; color: var(--primary); border-radius: var(--radius-sm);
+      font-size: 15px; font-weight: 500; cursor: pointer; text-align: center;
+    }
+    .action-btn-primary {
+      flex: 2; padding: 12px;
+      background: var(--primary); color: white; border: none;
+      border-radius: var(--radius-sm); font-size: 15px; font-weight: 500;
+      cursor: pointer; text-align: center;
+    }
+    .action-btn-primary:active { background: var(--primary-dark); transform: scale(0.98); }
+    .action-btn-secondary:active { background: var(--primary-bg); transform: scale(0.98); }
+
+    .source-info {
+      margin-top: 12px; padding: 10px; background: #f0f7ff;
+      border-radius: var(--radius-sm); font-size: 12px; color: var(--primary);
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .feedback-bar {
+      display: flex; align-items: center; gap: 12px; margin-top: 12px;
+      font-size: 12px; color: var(--text-tertiary);
+    }
+    .feedback-btn {
+      padding: 4px 10px; border: 1px solid var(--border); border-radius: 12px;
+      background: white; cursor: pointer; font-size: 12px; color: var(--text-secondary);
+    }
+    .feedback-btn:active { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
+  </style>
+</head>
+<body>
+  <div class="container" style="padding-bottom:0">
+    <div class="navbar" style="position:absolute;top:0;left:0;right:0;background:transparent;border:none;z-index:20;color:white">
+      <button class="navbar-back" onclick="history.back()" style="color:white">‹</button>
+      <div class="navbar-title" style="color:white">产品详情</div>
+      <div style="width:32px"></div>
+    </div>
+
+    <div class="detail-header" style="padding-top:56px" id="detailHeader">
+      <div class="detail-icon">⚙️</div>
+      <div class="detail-sku" id="detailSku">-</div>
+      <div class="detail-name" id="detailName">-</div>
+      <div class="detail-badges" id="detailBadges"></div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-grid" id="infoGrid">
+        <div><div class="info-val" id="infoPrice">-</div><div class="info-label">含税单价</div></div>
+        <div><div class="info-val" id="infoStock">-</div><div class="info-label">库存</div></div>
+        <div><div class="info-val" id="infoDelivery">-</div><div class="info-label">交期(天)</div></div>
+      </div>
+    </div>
+
+    <!-- 规格参数 -->
+    <div class="section-card" id="specSection">
+      <div class="section-title">📐 规格参数</div>
+      <div id="specParams"></div>
+    </div>
+
+    <!-- 价格体系 -->
+    <div class="section-card" id="priceSection">
+      <div class="section-title">💰 价格体系（阶梯价）</div>
+      <div id="priceTable"></div>
+    </div>
+
+    <!-- 替代型号 -->
+    <div class="section-card" id="altSection">
+      <div class="section-title">🔄 替代/相似型号</div>
+      <div class="alt-list" id="altList"></div>
+    </div>
+
+    <!-- 来源信息 -->
+    <div class="section-card">
+      <div class="section-title">📄 数据来源</div>
+      <div id="sourceInfo"></div>
+      <div class="feedback-bar">
+        <span>这条信息准确吗？</span>
+        <button class="feedback-btn" onclick="Utils.toast('感谢反馈！')">👍 准确</button>
+        <button class="feedback-btn" onclick="Utils.toast('已记录，管理员将核查')">👎 不准确</button>
+      </div>
+    </div>
+
+    <div style="height:80px"></div>
+
+    <!-- 底部操作栏 -->
+    <div class="action-bar">
+      <button class="action-btn-secondary" onclick="handleShare()">分享</button>
+      <button class="action-btn-primary" onclick="handleAddQuote()">💰 加入报价单</button>
+    </div>
+  </div>
+
+  <script src="scripts/utils.js"></script>
+  <script src="scripts/mock-data.js"></script>
+  <script src="scripts/storage.js"></script>
+  <script>
+    if (!UserStorage.isLoggedIn()) { window.location.href = 'index.html'; }
+    initAllData();
+
+    const productId = Utils.getParam('id');
+    const product = ProductStorage.getById(productId);
+
+    if (!product) {
+      Utils.toast('产品不存在');
+      setTimeout(() => history.back(), 1000);
+    } else {
+      renderProduct(product);
+    }
+
+    function renderProduct(p) {
+      // 头部
+      const categoryIcons = { cat001: '⚙️', cat002: '🔩', cat003: '⚡', cat004: '🔧', cat005: '🔘', cat006: '🔗' };
+      document.querySelector('.detail-icon').textContent = categoryIcons[p.category_id] || '📦';
+      document.getElementById('detailSku').textContent = p.sku;
+      document.getElementById('detailName').textContent = p.name;
+
+      // 徽章
+      let badges = '';
+      if (p.is_verified) badges += '<span class="detail-badge">✓ 已校验</span>';
+      badges += `<span class="detail-badge">${Utils.statusText(p.status)}</span>`;
+      if (p.min_order) badges += `<span class="detail-badge">起订${p.min_order}${p.unit}</span>`;
+      document.getElementById('detailBadges').innerHTML = badges;
+
+      // 核心信息
+      const prices = PriceStorage.getByProductId(p.id);
+      const basePrice = prices.length > 0 ? prices[0].unit_price : null;
+      document.getElementById('infoPrice').textContent = basePrice ? '¥' + basePrice : '-';
+      document.getElementById('infoStock').textContent = p.stock ? Utils.formatNumber(p.stock) : '-';
+      document.getElementById('infoDelivery').textContent = p.delivery_days || '-';
+
+      // 规格参数
+      if (p.spec_params) {
+        document.getElementById('specParams').innerHTML = Object.entries(p.spec_params).map(([k, v]) => `
+          <div class="param-row">
+            <span class="param-key">${k}</span>
+            <span class="param-val">${v}</span>
+          </div>
+        `).join('');
+      }
+
+      // 价格体系
+      if (prices.length > 0) {
+        let tableHtml = '<table class="price-table"><tr><th>数量范围</th><th>单价（含税）</th></tr>';
+        prices.sort((a, b) => a.min_qty - b.min_qty).forEach((pr, idx) => {
+          const range = pr.max_qty ? `${pr.min_qty} - ${pr.max_qty}${p.unit}` : `${pr.min_qty}${p.unit}以上`;
+          tableHtml += `<tr><td>${range}</td><td class="${idx === 0 ? '' : 'price-highlight'}">¥${pr.unit_price}/${p.unit}</td></tr>`;
+        });
+        tableHtml += '</table>';
+        document.getElementById('priceTable').innerHTML = tableHtml;
+      }
+
+      // 替代型号
+      if (p.alternatives && p.alternatives.length > 0) {
+        document.getElementById('altList').innerHTML = p.alternatives.map(alt => {
+          const altProduct = ProductStorage.getAll().find(pp => pp.sku === alt);
+          if (altProduct) {
+            return `<span class="alt-tag" onclick="location.href='detail.html?id=${altProduct.id}'">${alt}</span>`;
+          }
+          return `<span class="alt-tag" onclick="location.href='chat.html?q=${encodeURIComponent(alt)}'">${alt}</span>`;
+        }).join('');
+      } else {
+        document.getElementById('altSection').style.display = 'none';
+      }
+
+      // 来源信息
+      const docs = DocStorage.getAll();
+      const sourceDoc = docs.find(d => d.id === p.source_doc_id);
+      let sourceHtml = '';
+      if (sourceDoc) {
+        sourceHtml += `<div class="source-info">📄 ${sourceDoc.name}${p.source_page ? '，第' + p.source_page + '页' : ''}</div>`;
+      }
+      sourceHtml += `<div style="font-size:11px;color:var(--text-tertiary);margin-top:6px">最后更新：${Utils.formatDate(p.updated_at)}</div>`;
+      document.getElementById('sourceInfo').innerHTML = sourceHtml;
+    }
+
+    function handleAddQuote() {
+      try {
+        const items = JSON.parse(localStorage.getItem('pqt_quote_cart') || '[]');
+        if (!items.find(i => i.product_id === product.id)) {
+          const price = PriceStorage.getUnitPrice(product.id, product.min_order || 1);
+          items.push({
+            product_id: product.id,
+            sku: product.sku,
+            name: product.name,
+            qty: product.min_order || 1,
+            unit: product.unit,
+            unit_price: price,
+            amount: price * (product.min_order || 1)
+          });
+          localStorage.setItem('pqt_quote_cart', JSON.stringify(items));
+          Utils.toast('已加入报价单');
+        } else {
+          Utils.toast('该产品已在报价单中');
+        }
+      } catch(e) {
+        Utils.toast('操作失败');
+      }
+    }
+
+    function handleShare() {
+      const text = `${product.sku} ${product.name}\n` +
+        Object.entries(product.spec_params || {}).slice(0, 5).map(([k,v]) => `${k}: ${v}`).join('\n');
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => Utils.toast('产品信息已复制'));
+      } else {
+        Utils.toast('分享链接已复制');
+      }
+    }
+  </script>
+</body>
+</html>
