@@ -114,6 +114,17 @@
     </div>
   </div>
 
+  <!-- 版本历史弹窗 -->
+  <div class="modal-overlay" id="historyModal">
+    <div class="modal" style="width:640px">
+      <div class="modal-header">
+        <span class="modal-title" id="historyTitle">版本历史</span>
+        <button class="modal-close" onclick="closeHistoryModal()">×</button>
+      </div>
+      <div id="historyContent"></div>
+    </div>
+  </div>
+
   <script src="../scripts/utils.js"></script>
   <script src="../scripts/mock-data.js"></script>
   <script src="../scripts/storage.js"></script>
@@ -135,7 +146,7 @@
         <td>
           <div class="btn-group">
             <button class="btn btn-sm btn-outline" onclick="showToast('上传新版本')">更新</button>
-            <button class="btn btn-sm btn-outline" onclick="showToast('查看版本历史')">历史</button>
+            <button class="btn btn-sm btn-outline" onclick="openHistory('${d.id}', '${d.name}')">历史</button>
             <button class="btn btn-sm btn-danger" onclick="if(confirm('确定删除？'))showToast('已删除')">删除</button>
           </div>
         </td>
@@ -151,6 +162,79 @@
       document.body.appendChild(el);
       setTimeout(() => el.remove(), 2500);
     }
+
+    // 版本历史模拟数据
+    const versionHistories = {
+      'doc001': [
+        { version: 'V3.0', date: '2026-07-01', operator: '张伟', changes: '更新价格（+5%）、新增6208/6209型号', products: 120, status: '当前版本' },
+        { version: 'V2.0', date: '2026-01-15', operator: '张伟', changes: '新增密封类型参数、修正6205重量数据', products: 110, status: '历史版本' },
+        { version: 'V1.0', date: '2025-06-01', operator: '陈工', changes: '初始版本上传', products: 95, status: '历史版本' }
+      ],
+      'doc002': [
+        { version: 'V2.0', date: '2026-06-15', operator: '张伟', changes: '新增32208-32212系列', products: 65, status: '当前版本' },
+        { version: 'V1.0', date: '2026-02-01', operator: '陈工', changes: '初始版本上传', products: 48, status: '历史版本' }
+      ],
+      'doc003': [
+        { version: 'V2.0', date: '2026-05-20', operator: '陈工', changes: '更新效率参数、新增YE3系列', products: 48, status: '当前版本' },
+        { version: 'V1.0', date: '2026-03-10', operator: '陈工', changes: '初始版本上传', products: 36, status: '历史版本' }
+      ]
+    };
+
+    // 通用历史数据（文档没有特定记录时使用）
+    const defaultHistory = [
+      { version: 'V2.0', date: '2026-06-01', operator: '张伟', changes: '参数更新与价格调整', products: 0, status: '当前版本' },
+      { version: 'V1.0', date: '2026-03-01', operator: '陈工', changes: '初始版本上传', products: 0, status: '历史版本' }
+    ];
+
+    window.openHistory = function(docId, docName) {
+      document.getElementById('historyTitle').textContent = '版本历史 — ' + docName;
+      const history = versionHistories[docId] || defaultHistory;
+
+      let html = `
+        <table class="data-table" style="width:100%">
+          <thead>
+            <tr><th>版本</th><th>日期</th><th>操作人</th><th>变更说明</th><th>收录型号</th><th>状态</th><th>操作</th></tr>
+          </thead>
+          <tbody>
+      `;
+      history.forEach((v, idx) => {
+        const isCurrent = idx === 0;
+        html += `
+          <tr>
+            <td><strong>${v.version}</strong></td>
+            <td>${v.date}</td>
+            <td>${v.operator}</td>
+            <td style="max-width:180px;font-size:12px">${v.changes}</td>
+            <td>${v.products || '-'}</td>
+            <td><span class="tag ${isCurrent ? 'tag-active' : 'tag-inactive'}">${v.status}</span></td>
+            <td>
+              ${isCurrent
+                ? '<span style="font-size:12px;color:var(--text-tertiary)">当前</span>'
+                : `<div class="btn-group">
+                    <button class="btn btn-sm btn-outline" onclick="showToast('已切换到${v.version}版本（回滚）')">↩️ 回滚</button>
+                    <button class="btn btn-sm btn-outline" onclick="showToast('对比${v.version}与当前版本')">对比</button>
+                  </div>`
+              }
+            </td>
+          </tr>
+        `;
+      });
+      html += '</tbody></table>';
+
+      // 底部说明
+      html += `
+        <div style="margin-top:16px;padding:12px;background:#f0f7ff;border-radius:6px;font-size:12px;color:var(--primary)">
+          💡 提示：回滚操作会将知识库数据恢复到所选版本，当前版本将自动归档。此操作可再次回滚撤销。
+        </div>
+      `;
+
+      document.getElementById('historyContent').innerHTML = html;
+      document.getElementById('historyModal').classList.add('show');
+    };
+
+    window.closeHistoryModal = function() {
+      document.getElementById('historyModal').classList.remove('show');
+    };
   </script>
 </body>
 </html>
